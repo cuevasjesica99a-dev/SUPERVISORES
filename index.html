@@ -10,7 +10,7 @@
 <!-- SheetJS para leer archivos Excel -->
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <!-- PptxGenJS para generar presentaciones PowerPoint -->
-<script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/libs/pptxgen.bundle.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.11.0/dist/pptxgen.bundle.js"></script>
 <style>
   /* ─── DESIGN TOKENS ─────────────────────────────────────── */
   :root {
@@ -1986,6 +1986,13 @@ async function exportPPT() {
     return;
   }
 
+  // Detectar el constructor correcto según la versión del bundle cargado
+  const PptxCtor = window.PptxGenJS || window.pptxgen || window.PptxGenJs;
+  if (!PptxCtor) {
+    showAlert('La librería PptxGenJS no se cargó. Verificá tu conexión a internet y recargá la página.');
+    return;
+  }
+
   const btn = document.getElementById('btnExportPpt');
   btn.textContent = '⏳ Generando PPT…';
   btn.disabled = true;
@@ -1994,7 +2001,7 @@ async function exportPPT() {
     // Pequeña pausa para que el UI se actualice
     await new Promise(r => setTimeout(r, 50));
 
-    const pres = new PptxGenJS();
+    const pres = new PptxCtor();
     pres.layout  = 'LAYOUT_16x9';
     pres.author  = 'Field Intelligence';
     pres.title   = 'Reporte de Productividad';
