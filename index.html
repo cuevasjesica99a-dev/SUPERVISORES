@@ -9,6 +9,8 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <!-- SheetJS para leer archivos Excel -->
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<!-- PptxGenJS para generar presentaciones PowerPoint -->
+<script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/libs/pptxgen.bundle.js"></script>
 <style>
   /* ─── DESIGN TOKENS ─────────────────────────────────────── */
   :root {
@@ -503,6 +505,14 @@
     width: 28px; text-align: right; flex-shrink: 0;
   }
 
+  /* ─── EXPORT BUTTON ─────────────────────────────────────── */
+  .btn-export {
+    background: linear-gradient(135deg, #CC1111 0%, #991111 100%);
+    color: #fff !important;
+    border: none !important;
+  }
+  .btn-export:hover { filter: brightness(1.2); transform: translateY(-1px); }
+
   /* ─── DASHBOARD SECTIONS (inicialmente ocultas) ─────────── */
   #dashboardContent { display: none; }
   #dashboardContent.visible { display: block; }
@@ -840,6 +850,9 @@
         <span class="status-dot" id="statusDot"></span>
         <span id="lastUpdate">Sin datos cargados</span>
       </span>
+      <button class="btn btn-export" id="btnExportPpt" onclick="exportPPT()" style="display:none">
+        📊 Exportar PPT
+      </button>
       <button class="btn btn-ghost" onclick="clearAll()">🗑 Limpiar todo</button>
     </div>
   </header>
@@ -1236,6 +1249,7 @@ async function processAllFiles() {
   updateLastUpdate();
   document.getElementById('dashboardContent').classList.add('visible');
   document.getElementById('statusDot').classList.add('live');
+  document.getElementById('btnExportPpt').style.display = 'inline-flex';
 
   // Scroll suave al dashboard
   setTimeout(() => {
@@ -1953,6 +1967,473 @@ function normalizeEncName(str) {
 /* Escapa comillas simples para uso en atributo onclick */
 function escapeSup(name) {
   return name.replace(/'/g, "\\'");
+}
+
+/* ════════════════════════════════════════════════════════════
+   EXPORTAR PPT — genera presentación estilo PARESA
+   Estructura:
+     Slide 1: Portada
+     Slide 2: Resumen general (KPIs + gráfico por supervisor)
+     Slide 3: Detalle de cumplimiento por supervisor (N slides)
+              — formularios completados / pendientes
+              — PDVs visitados por formulario
+   Paleta: fondo #141414, rojo #CC1111, verde #2E9E2E,
+           azul #2A5CCC, texto #FFFFFF, gris #888888
+════════════════════════════════════════════════════════════ */
+async function exportPPT() {
+  if (!filtered.length) {
+    showAlert('No hay datos filtrados para exportar.');
+    return;
+  }
+
+  const btn = document.getElementById('btnExportPpt');
+  btn.textContent = '⏳ Generando PPT…';
+  btn.disabled = true;
+
+  try {
+    // Pequeña pausa para que el UI se actualice
+    await new Promise(r => setTimeout(r, 50));
+
+    const pres = new PptxGenJS();
+    pres.layout  = 'LAYOUT_16x9';
+    pres.author  = 'Field Intelligence';
+    pres.title   = 'Reporte de Productividad';
+
+    // ── Paleta de colores (sin # según pptxgenjs) ──────────
+    const C = {
+      bg:      '141414',
+      surface: '232323',
+      surface2:'333333',
+      red:     'CC1111',
+      green:   '2E9E2E',
+      greenDk: '1A4A1A',
+      blue:    '2A5CCC',
+      yellow:  'FFC000',
+      white:   'FFFFFF',
+      gray:    '888888',
+      gray2:   '444444',
+    };
+
+    // ── Helpers ─────────────────────────────────────────────
+    const W = 10, H = 5.625; // slide dimensions inches
+
+    function addSlide(bgColor = C.bg) {
+      const s = pres.addSlide();
+      s.background = { color: bgColor };
+      // Footer PARESA brand
+      s.addText('PARESA · RELEVAMIENTO DE CAMPO · MAYO 2026', {
+        x: 0, y: H - 0.22, w: W, h: 0.22,
+        fontSize: 7, color: C.gray2, align: 'center',
+        fontFace: 'Calibri', margin: 0,
+      });
+      return s;
+    }
+
+    function kpiBox(slide, x, y, w, h, label, value, color) {
+      // Card background
+      slide.addShape(pres.shapes.RECTANGLE, {
+        x, y, w, h,
+        fill: { color: C.surface },
+        line: { color: C.surface2, width: 1 },
+      });
+      // Top accent bar
+      slide.addShape(pres.shapes.RECTANGLE, {
+        x, y, w, h: 0.04,
+        fill: { color: color },
+        line: { color: color, width: 0 },
+      });
+      // Value
+      slide.addText(String(value), {
+        x, y: y + 0.08, w, h: h * 0.55,
+        fontSize: 40, bold: true, color: color,
+        fontFace: 'Arial Black', align: 'center', valign: 'middle', margin: 0,
+      });
+      // Label
+      slide.addText(label, {
+        x, y: y + h * 0.6, w, h: h * 0.35,
+        fontSize: 9, color: C.gray, fontFace: 'Calibri',
+        align: 'center', charSpacing: 1.5, margin: 0,
+      });
+    }
+
+    // ══════════════════════════════════════════════════════
+    // SLIDE 1: PORTADA
+    // ══════════════════════════════════════════════════════
+    const s1 = addSlide();
+
+    // Red left sidebar
+    s1.addShape(pres.shapes.RECTANGLE, {
+      x: 0, y: 0, w: 0.12, h: H,
+      fill: { color: C.red }, line: { color: C.red, width: 0 },
+    });
+
+    // PARESA brand top
+    s1.addText('· PARESA ·', {
+      x: 0.3, y: 0.3, w: 4, h: 0.3,
+      fontSize: 10, color: C.gray, fontFace: 'Calibri',
+      charSpacing: 4, margin: 0,
+    });
+
+    // Main title
+    s1.addText('RELEVAMIENTO\nDE CAMPO', {
+      x: 0.3, y: 0.8, w: 7, h: 2.4,
+      fontSize: 60, bold: true, color: C.white,
+      fontFace: 'Arial Black', align: 'left', valign: 'top',
+      charSpacing: 8, margin: 0,
+    });
+
+    // Date / period
+    const today = new Date();
+    const monthYear = today.toLocaleDateString('es-PY', { month: 'long', year: 'numeric' }).toUpperCase();
+    s1.addText(monthYear, {
+      x: 0.3, y: 3.5, w: 6, h: 0.4,
+      fontSize: 14, color: C.red, fontFace: 'Calibri',
+      charSpacing: 3, margin: 0,
+    });
+
+    // Summary line
+    const totalEnc  = filtered.length;
+    const totalSups = new Set(filtered.map(r => r.empleado)).size;
+    const totalPdvs = new Set(filtered.map(r => r.pdv)).size;
+    s1.addText(`${totalEnc} encuestas  ·  ${totalSups} supervisores  ·  ${totalPdvs} puntos de venta`, {
+      x: 0.3, y: 4.1, w: 8, h: 0.35,
+      fontSize: 11, color: C.gray, fontFace: 'Calibri', margin: 0,
+    });
+
+    // ══════════════════════════════════════════════════════
+    // SLIDE 2: RESUMEN GENERAL
+    // ══════════════════════════════════════════════════════
+    const s2 = addSlide();
+
+    // Red left sidebar
+    s2.addShape(pres.shapes.RECTANGLE, {
+      x: 0, y: 0, w: 0.12, h: H,
+      fill: { color: C.red }, line: { color: C.red, width: 0 },
+    });
+
+    // Section label
+    s2.addText('RESUMEN DE COBERTURA', {
+      x: 0.25, y: 0.18, w: 9, h: 0.28,
+      fontSize: 10, color: C.gray, fontFace: 'Calibri',
+      charSpacing: 3, margin: 0,
+    });
+
+    // KPI cards row
+    const kpiData = [
+      { label: 'ENCUESTAS',      value: totalEnc,   color: C.white },
+      { label: 'SUPERVISORES',   value: totalSups,  color: C.blue  },
+      { label: 'FORMULARIOS',    value: new Set(filtered.map(r => r.formulario)).size, color: C.green },
+      { label: 'PDVS VISITADOS', value: totalPdvs,  color: C.red   },
+    ];
+    const cardW = 2.1, cardH = 1.1, cardY = 0.55, cardGap = 0.1;
+    const startX = 0.25;
+    kpiData.forEach((k, i) => {
+      kpiBox(s2, startX + i * (cardW + cardGap), cardY, cardW, cardH, k.label, k.value, k.color);
+    });
+
+    // Supervisor bar chart data
+    const supCounts = countBy(filtered, 'empleado');
+    const chartColors = supCounts.map((_, i) =>
+      [C.blue, C.green, C.red, 'FFC000', '2E9E2E', '888888'][i % 6]
+    );
+
+    s2.addChart(pres.charts.BAR, [{
+      name: 'Encuestas',
+      labels: supCounts.map(d => d[0]),
+      values: supCounts.map(d => d[1]),
+    }], {
+      x: 0.25, y: 1.78, w: 9.5, h: 2.9,
+      barDir: 'col',
+      chartColors,
+      chartArea: { fill: { color: C.surface } },
+      plotArea: { fill: { color: C.surface } },
+      catAxisLabelColor: C.gray,
+      valAxisLabelColor: C.gray,
+      catAxisLineShow: false,
+      valAxisLineShow: false,
+      valGridLine: { color: C.gray2, size: 0.5 },
+      catGridLine: { style: 'none' },
+      showValue: true,
+      dataLabelColor: C.white,
+      dataLabelFontSize: 9,
+      showLegend: false,
+      valAxisMinVal: 0,
+    });
+
+    // ══════════════════════════════════════════════════════
+    // SLIDE 3: CUMPLIMIENTO POR SUPERVISOR (tabla resumen)
+    // ══════════════════════════════════════════════════════
+    const s3 = addSlide();
+
+    s3.addShape(pres.shapes.RECTANGLE, {
+      x: 0, y: 0, w: 0.12, h: H,
+      fill: { color: C.red }, line: { color: C.red, width: 0 },
+    });
+    s3.addText('CUMPLIMIENTO POR SUPERVISOR', {
+      x: 0.25, y: 0.15, w: 9, h: 0.28,
+      fontSize: 10, color: C.gray, fontFace: 'Calibri', charSpacing: 3, margin: 0,
+    });
+
+    // Table header
+    const tblHeader = [
+      { text: 'SUPERVISOR', options: { bold: true, color: C.white, fill: { color: C.gray2 }, align: 'left' } },
+      { text: 'ENCUESTAS', options: { bold: true, color: C.white, fill: { color: C.gray2 }, align: 'center' } },
+      { text: 'PDVs', options: { bold: true, color: C.white, fill: { color: C.gray2 }, align: 'center' } },
+      { text: 'COMPLETADAS', options: { bold: true, color: C.white, fill: { color: C.gray2 }, align: 'center' } },
+      { text: 'PENDIENTES', options: { bold: true, color: C.white, fill: { color: C.gray2 }, align: 'center' } },
+      { text: '%', options: { bold: true, color: C.white, fill: { color: C.gray2 }, align: 'center' } },
+    ];
+
+    const supervisors = [...new Set(filtered.map(r => r.empleado))].sort();
+    const tblRows = supervisors.map(sup => {
+      const supData  = filtered.filter(r => r.empleado === sup);
+      const pdvCount = new Set(supData.map(r => r.pdv)).size;
+      const done     = ENCUESTAS_REQUERIDAS.filter(enc =>
+        supData.some(r => normalizeEncName(r.formulario) === normalizeEncName(enc))
+      ).length;
+      const pending  = ENCUESTAS_REQUERIDAS.length - done;
+      const pct      = Math.round((done / ENCUESTAS_REQUERIDAS.length) * 100);
+      const pctColor = pct >= 80 ? C.green : pct >= 40 ? C.yellow : C.red;
+
+      return [
+        { text: sup, options: { color: C.white, align: 'left', fill: { color: C.surface } } },
+        { text: String(supData.length), options: { color: C.gray, align: 'center', fill: { color: C.surface } } },
+        { text: String(pdvCount), options: { color: C.gray, align: 'center', fill: { color: C.surface } } },
+        { text: String(done), options: { color: C.green, bold: true, align: 'center', fill: { color: C.surface } } },
+        { text: String(pending), options: { color: pending > 0 ? C.red : C.gray, bold: pending > 0, align: 'center', fill: { color: C.surface } } },
+        { text: `${pct}%`, options: { color: pctColor, bold: true, align: 'center', fill: { color: C.surface } } },
+      ];
+    });
+
+    s3.addTable([tblHeader, ...tblRows], {
+      x: 0.25, y: 0.55, w: 9.5,
+      fontSize: 10, fontFace: 'Calibri',
+      border: { pt: 0.5, color: C.gray2 },
+      rowH: 0.35,
+      colW: [3.2, 1.2, 1.0, 1.4, 1.3, 1.4],
+    });
+
+    // ══════════════════════════════════════════════════════
+    // SLIDES 4+: DETALLE POR SUPERVISOR
+    // ══════════════════════════════════════════════════════
+    for (const supName of supervisors) {
+      const supData  = filtered.filter(r => r.empleado === supName);
+      const pdvCount = new Set(supData.map(r => r.pdv)).size;
+
+      // Calcular estado de encuestas
+      const encStatus = ENCUESTAS_REQUERIDAS.map(enc => {
+        const matches = supData.filter(r =>
+          normalizeEncName(r.formulario) === normalizeEncName(enc)
+        );
+        const done = matches.length > 0;
+        const pdvCounts = {};
+        matches.forEach(r => {
+          pdvCounts[r.pdv] = (pdvCounts[r.pdv] || 0) + 1;
+        });
+        const pdvList = Object.entries(pdvCounts).sort((a, b) => b[1] - a[1]);
+        return { enc, done, count: matches.length, pdvList };
+      });
+
+      const doneCount    = encStatus.filter(e => e.done).length;
+      const pendingCount = encStatus.filter(e => !e.done).length;
+      const pct          = Math.round((doneCount / ENCUESTAS_REQUERIDAS.length) * 100);
+      const pctColor     = pct >= 80 ? C.green : pct >= 40 ? C.yellow : C.red;
+
+      const sS = addSlide();
+
+      // Red left sidebar
+      sS.addShape(pres.shapes.RECTANGLE, {
+        x: 0, y: 0, w: 0.12, h: H,
+        fill: { color: C.red }, line: { color: C.red, width: 0 },
+      });
+
+      // Supervisor name header
+      sS.addText('DETALLE — SUPERVISOR', {
+        x: 0.25, y: 0.12, w: 9, h: 0.22,
+        fontSize: 9, color: C.gray, fontFace: 'Calibri', charSpacing: 3, margin: 0,
+      });
+      sS.addText(supName.toUpperCase(), {
+        x: 0.25, y: 0.3, w: 7, h: 0.45,
+        fontSize: 22, bold: true, color: C.white, fontFace: 'Arial Black',
+        charSpacing: 2, margin: 0,
+      });
+
+      // Stats pills top-right
+      const pillY = 0.25;
+      // Encuestas box
+      sS.addShape(pres.shapes.RECTANGLE, {
+        x: 7.4, y: pillY, w: 1.1, h: 0.55,
+        fill: { color: C.surface }, line: { color: C.gray2, width: 1 },
+      });
+      sS.addText(`${supData.length}\nENCUESTAS`, {
+        x: 7.4, y: pillY, w: 1.1, h: 0.55,
+        fontSize: 9, color: C.white, align: 'center', valign: 'middle',
+        fontFace: 'Calibri', bold: true, margin: 0,
+      });
+      // PDVs box
+      sS.addShape(pres.shapes.RECTANGLE, {
+        x: 8.6, y: pillY, w: 1.15, h: 0.55,
+        fill: { color: C.surface }, line: { color: C.blue, width: 1 },
+      });
+      sS.addText(`${pdvCount}\nPDVs`, {
+        x: 8.6, y: pillY, w: 1.15, h: 0.55,
+        fontSize: 9, color: C.blue, align: 'center', valign: 'middle',
+        fontFace: 'Calibri', bold: true, margin: 0,
+      });
+
+      // % cumplimiento box
+      sS.addShape(pres.shapes.RECTANGLE, {
+        x: 7.4, y: pillY + 0.63, w: 2.35, h: 0.3,
+        fill: { color: pctColor + '33' }, line: { color: pctColor, width: 1 },
+      });
+      sS.addText(`${doneCount}/${ENCUESTAS_REQUERIDAS.length} formularios · ${pct}% completado`, {
+        x: 7.4, y: pillY + 0.63, w: 2.35, h: 0.3,
+        fontSize: 8, color: pctColor, align: 'center', valign: 'middle',
+        fontFace: 'Calibri', bold: true, margin: 0,
+      });
+
+      // Divider
+      sS.addShape(pres.shapes.LINE, {
+        x: 0.25, y: 1.0, w: 9.5, h: 0,
+        line: { color: C.gray2, width: 0.75 },
+      });
+
+      // Layout: 2 columns of encuestas
+      const colW   = 4.6;
+      const startY = 1.12;
+      const rowH   = 0.42;
+      const maxPdvPerCard = 3;
+
+      let col = 0, rowInCol = [0, 0];
+
+      encStatus.forEach((enc, idx) => {
+        const cx = 0.25 + col * (colW + 0.2);
+        let cy   = startY + rowInCol[col] * rowH;
+
+        if (cy + rowH > H - 0.3) { col = 1; cy = startY + rowInCol[1] * rowH; }
+
+        const cardH = enc.done
+          ? rowH + Math.min(enc.pdvList.length, maxPdvPerCard) * 0.22
+          : rowH;
+
+        // Card bg
+        sS.addShape(pres.shapes.RECTANGLE, {
+          x: cx, y: cy, w: colW, h: cardH,
+          fill: { color: C.surface },
+          line: { color: enc.done ? C.greenDk : '3A0A0A', width: 1 },
+        });
+        // Status bar left
+        sS.addShape(pres.shapes.RECTANGLE, {
+          x: cx, y: cy, w: 0.06, h: cardH,
+          fill: { color: enc.done ? C.green : C.red },
+          line: { color: enc.done ? C.green : C.red, width: 0 },
+        });
+
+        // Status icon + name
+        const icon = enc.done ? '✓' : '✗';
+        const icCol = enc.done ? C.green : C.red;
+        sS.addText(icon, {
+          x: cx + 0.1, y: cy + 0.05, w: 0.22, h: 0.25,
+          fontSize: 11, bold: true, color: icCol,
+          fontFace: 'Calibri', margin: 0,
+        });
+        sS.addText(enc.enc, {
+          x: cx + 0.32, y: cy + 0.04, w: colW - 1.2, h: 0.25,
+          fontSize: 9.5, bold: true, color: C.white,
+          fontFace: 'Calibri', margin: 0,
+        });
+
+        // Status badge
+        sS.addShape(pres.shapes.RECTANGLE, {
+          x: cx + colW - 0.88, y: cy + 0.06, w: 0.85, h: 0.22,
+          fill: { color: enc.done ? C.greenDk : '3A0A0A' },
+          line: { color: enc.done ? C.green : C.red, width: 1 },
+        });
+        sS.addText(enc.done ? 'COMPLETADO' : 'PENDIENTE', {
+          x: cx + colW - 0.88, y: cy + 0.06, w: 0.85, h: 0.22,
+          fontSize: 6.5, bold: true, color: enc.done ? C.green : C.red,
+          fontFace: 'Calibri', align: 'center', valign: 'middle', margin: 0,
+        });
+
+        // Sub-info (count + pendiente text)
+        const subText = enc.done
+          ? `${enc.count} registro${enc.count !== 1 ? 's' : ''} · ${enc.pdvList.length} PDV${enc.pdvList.length !== 1 ? 's' : ''}`
+          : 'Sin registros en el período filtrado';
+        sS.addText(subText, {
+          x: cx + 0.32, y: cy + 0.27, w: colW - 0.45, h: 0.15,
+          fontSize: 7.5, color: C.gray, fontFace: 'Calibri', margin: 0,
+        });
+
+        let pdvY = cy + rowH;
+
+        // PDV list (only for completed)
+        if (enc.done) {
+          enc.pdvList.slice(0, maxPdvPerCard).forEach(([pdv, cnt]) => {
+            // Dot
+            sS.addShape(pres.shapes.OVAL, {
+              x: cx + 0.16, y: pdvY + 0.06, w: 0.07, h: 0.07,
+              fill: { color: C.green }, line: { color: C.green, width: 0 },
+            });
+            // PDV name
+            sS.addText(pdv, {
+              x: cx + 0.28, y: pdvY + 0.02, w: colW - 1.2, h: 0.2,
+              fontSize: 7.5, color: C.gray, fontFace: 'Calibri', margin: 0,
+            });
+            // Count
+            sS.addText(`${cnt}×`, {
+              x: cx + colW - 0.5, y: pdvY + 0.02, w: 0.4, h: 0.2,
+              fontSize: 7.5, color: C.gray, fontFace: 'Calibri',
+              align: 'right', margin: 0,
+            });
+            pdvY += 0.22;
+          });
+          // Indicator if there are more PDVs
+          if (enc.pdvList.length > maxPdvPerCard) {
+            sS.addText(`+${enc.pdvList.length - maxPdvPerCard} PDVs más…`, {
+              x: cx + 0.28, y: pdvY + 0.01, w: colW - 0.45, h: 0.18,
+              fontSize: 7, color: C.gray2, fontFace: 'Calibri', margin: 0,
+            });
+          }
+        }
+
+        rowInCol[col] += Math.round(cardH / rowH);
+        col = col === 0 ? 1 : 0;
+      });
+    }
+
+    // ══════════════════════════════════════════════════════
+    // SLIDE FINAL: Cierre
+    // ══════════════════════════════════════════════════════
+    const sFin = addSlide();
+    sFin.addShape(pres.shapes.RECTANGLE, {
+      x: 0, y: 0, w: 0.12, h: H,
+      fill: { color: C.red }, line: { color: C.red, width: 0 },
+    });
+    sFin.addText('HACEMOS QUE TU', {
+      x: 0.4, y: 1.2, w: 9, h: 0.5,
+      fontSize: 18, color: C.gray, fontFace: 'Calibri', charSpacing: 6, margin: 0,
+    });
+    sFin.addText('MARCA SEA +', {
+      x: 0.4, y: 1.7, w: 9, h: 1.0,
+      fontSize: 48, bold: true, color: C.white, fontFace: 'Arial Black',
+      charSpacing: 8, margin: 0,
+    });
+    sFin.addText('+ VISIBILIDAD\n+ DATOS\n+ RESULTADOS', {
+      x: 0.4, y: 3.0, w: 5, h: 1.1,
+      fontSize: 13, color: C.gray, fontFace: 'Calibri', margin: 0,
+    });
+
+    // ── Exportar ─────────────────────────────────────────
+    const fecha = new Date().toLocaleDateString('es-PY').replace(/\//g, '-');
+    await pres.writeFile({ fileName: `Productividad_Paresa_${fecha}.pptx` });
+
+  } catch(err) {
+    showAlert('Error al generar el PPT: ' + err.message);
+    console.error(err);
+  } finally {
+    btn.textContent = '📊 Exportar PPT';
+    btn.disabled = false;
+  }
 }
 </script>
 </body>
