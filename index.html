@@ -5,7 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Dashboard de Visitas · Field Intelligence</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700;800&family=Inter:wght@300;400;500&display=swap" rel="stylesheet" />
+<!-- Chart.js -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<!-- SheetJS para leer archivos Excel -->
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
   /* ─── DESIGN TOKENS ─────────────────────────────────────── */
   :root {
@@ -72,9 +75,7 @@
     backdrop-filter: blur(12px);
     position: sticky; top: 0; z-index: 100;
   }
-  .logo {
-    display: flex; align-items: center; gap: 12px;
-  }
+  .logo { display: flex; align-items: center; gap: 12px; }
   .logo-icon {
     width: 36px; height: 36px;
     background: var(--accent);
@@ -95,9 +96,7 @@
     text-transform: uppercase;
     letter-spacing: 2px;
   }
-  .header-right {
-    display: flex; align-items: center; gap: 16px;
-  }
+  .header-right { display: flex; align-items: center; gap: 16px; }
   .last-update {
     font-family: var(--mono);
     font-size: 11px;
@@ -120,78 +119,111 @@
   /* ─── MAIN CONTENT ──────────────────────────────────────── */
   main { flex: 1; padding: 28px 32px; max-width: 1600px; margin: 0 auto; width: 100%; }
 
-  /* ─── CONNECTION CONFIG PANEL ───────────────────────────── */
-  .config-panel {
+  /* ─── UPLOAD PANEL ──────────────────────────────────────── */
+  .upload-panel {
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: var(--radius-lg);
-    padding: 20px 24px;
+    padding: 24px;
     margin-bottom: 24px;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    flex-wrap: wrap;
   }
-  .config-label {
+  .upload-panel-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 16px; flex-wrap: wrap; gap: 10px;
+  }
+  .upload-panel-title {
+    font-family: var(--display);
+    font-weight: 700;
+    font-size: 15px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .upload-panel-title span {
     font-family: var(--mono);
-    font-size: 11px;
+    font-size: 10px;
     color: var(--accent);
     text-transform: uppercase;
     letter-spacing: 1.5px;
-    white-space: nowrap;
-    flex-shrink: 0;
+    font-weight: 400;
   }
-  .config-select {
-    background: var(--surface2);
-    border: 1px solid var(--border2);
-    border-radius: 8px;
-    color: var(--text);
-    font-family: var(--mono);
-    font-size: 12px;
-    padding: 8px 12px;
-    cursor: pointer;
-    outline: none;
-    transition: border-color 0.2s;
-  }
-  .config-select:focus { border-color: var(--accent); }
-  .config-input {
-    flex: 1;
-    min-width: 200px;
-    background: var(--surface2);
-    border: 1px solid var(--border2);
-    border-radius: 8px;
-    color: var(--text);
-    font-family: var(--mono);
-    font-size: 12px;
-    padding: 8px 14px;
-    outline: none;
-    transition: border-color 0.2s;
-  }
-  .config-input:focus { border-color: var(--accent); }
-  .config-input::placeholder { color: var(--text3); }
-  .btn {
-    display: inline-flex; align-items: center; gap: 8px;
-    padding: 9px 18px;
-    border-radius: 8px;
-    font-family: var(--display);
-    font-weight: 600;
-    font-size: 13px;
-    border: none;
+
+  /* Zona de arrastre */
+  .drop-zone {
+    border: 2px dashed var(--border2);
+    border-radius: var(--radius);
+    padding: 36px 24px;
+    text-align: center;
     cursor: pointer;
     transition: all 0.2s;
-    white-space: nowrap;
+    position: relative;
   }
-  .btn-primary {
-    background: var(--accent);
-    color: #000;
+  .drop-zone:hover,
+  .drop-zone.drag-over {
+    border-color: var(--accent);
+    background: rgba(0,229,160,0.04);
   }
-  .btn-primary:hover { filter: brightness(1.15); transform: translateY(-1px); }
-  .btn-ghost {
-    background: transparent;
-    color: var(--text2);
+  .drop-zone input[type="file"] {
+    position: absolute; inset: 0;
+    opacity: 0; cursor: pointer; width: 100%; height: 100%;
+  }
+  .drop-icon { font-size: 36px; margin-bottom: 10px; }
+  .drop-title {
+    font-family: var(--display);
+    font-weight: 700;
+    font-size: 15px;
+    color: var(--text);
+    margin-bottom: 4px;
+  }
+  .drop-sub {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text3);
+  }
+  .drop-sub strong { color: var(--accent); }
+
+  /* Lista de archivos cargados */
+  .file-list {
+    display: flex; flex-direction: column; gap: 8px;
+    margin-top: 16px;
+  }
+  .file-item {
+    display: flex; align-items: center; gap: 12px;
+    background: var(--surface2);
     border: 1px solid var(--border2);
+    border-radius: 8px;
+    padding: 10px 14px;
+    transition: border-color 0.2s;
   }
-  .btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
+  .file-item.ok   { border-color: rgba(0,229,160,0.3); }
+  .file-item.err  { border-color: rgba(255,77,109,0.3); }
+  .file-item.loading { border-color: rgba(0,151,255,0.3); }
+  .file-icon { font-size: 18px; flex-shrink: 0; }
+  .file-info { flex: 1; min-width: 0; }
+  .file-name {
+    font-size: 13px;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .file-meta {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text3);
+    margin-top: 2px;
+  }
+  .file-meta.ok  { color: var(--accent); }
+  .file-meta.err { color: var(--danger); }
+  .file-remove {
+    background: none; border: none; color: var(--text3);
+    cursor: pointer; font-size: 16px; padding: 2px 6px;
+    border-radius: 4px; transition: color 0.15s;
+  }
+  .file-remove:hover { color: var(--danger); }
+
+  /* Botones de acción de carga */
+  .upload-actions {
+    display: flex; gap: 10px; margin-top: 16px; flex-wrap: wrap;
+  }
 
   /* ─── FILTERS BAR ───────────────────────────────────────── */
   .filters-bar {
@@ -227,9 +259,35 @@
   }
   .filter-input:focus, .filter-select:focus { border-color: var(--accent); }
   .filter-select option { background: var(--surface2); }
-  .filter-actions {
-    display: flex; gap: 8px; align-items: flex-end;
+  .filter-actions { display: flex; gap: 8px; align-items: flex-end; }
+
+  /* ─── BTN ───────────────────────────────────────────────── */
+  .btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 9px 18px;
+    border-radius: 8px;
+    font-family: var(--display);
+    font-weight: 600;
+    font-size: 13px;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
   }
+  .btn-primary { background: var(--accent); color: #000; }
+  .btn-primary:hover { filter: brightness(1.15); transform: translateY(-1px); }
+  .btn-ghost {
+    background: transparent;
+    color: var(--text2);
+    border: 1px solid var(--border2);
+  }
+  .btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
+  .btn-danger {
+    background: transparent;
+    color: var(--danger);
+    border: 1px solid rgba(255,77,109,0.3);
+  }
+  .btn-danger:hover { background: rgba(255,77,109,0.1); }
 
   /* ─── KPI CARDS ─────────────────────────────────────────── */
   .kpi-grid {
@@ -243,25 +301,18 @@
     border: 1px solid var(--border);
     border-radius: var(--radius-lg);
     padding: 22px 24px;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
+    display: flex; flex-direction: column; gap: 8px;
     transition: border-color 0.2s, transform 0.2s;
-    position: relative;
-    overflow: hidden;
+    position: relative; overflow: hidden;
   }
   .kpi-card::before {
     content: '';
-    position: absolute;
-    top: 0; left: 0; right: 0;
+    position: absolute; top: 0; left: 0; right: 0;
     height: 2px;
     background: var(--card-accent, var(--accent));
   }
   .kpi-card:hover { border-color: var(--border2); transform: translateY(-2px); }
-  .kpi-icon {
-    font-size: 22px;
-    margin-bottom: 4px;
-  }
+  .kpi-icon { font-size: 22px; margin-bottom: 4px; }
   .kpi-label {
     font-family: var(--mono);
     font-size: 10px;
@@ -276,10 +327,7 @@
     line-height: 1;
     color: var(--card-accent, var(--accent));
   }
-  .kpi-sub {
-    font-size: 12px;
-    color: var(--text3);
-  }
+  .kpi-sub { font-size: 12px; color: var(--text3); }
 
   /* ─── CHARTS GRID ───────────────────────────────────────── */
   .charts-grid {
@@ -293,20 +341,12 @@
     border: 1px solid var(--border);
     border-radius: var(--radius-lg);
     padding: 24px;
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
+    display: flex; flex-direction: column; gap: 16px;
     min-height: 320px;
   }
   .chart-card.full-width { grid-column: 1 / -1; }
-  .chart-header {
-    display: flex; align-items: center; justify-content: space-between;
-  }
-  .chart-title {
-    font-family: var(--display);
-    font-weight: 700;
-    font-size: 15px;
-  }
+  .chart-header { display: flex; align-items: center; justify-content: space-between; }
+  .chart-title { font-family: var(--display); font-weight: 700; font-size: 15px; }
   .chart-tag {
     font-family: var(--mono);
     font-size: 10px;
@@ -315,11 +355,7 @@
     border: 1px solid var(--border2);
     color: var(--text3);
   }
-  .chart-wrap {
-    flex: 1;
-    position: relative;
-    min-height: 220px;
-  }
+  .chart-wrap { flex: 1; position: relative; min-height: 220px; }
 
   /* ─── TABLE ─────────────────────────────────────────────── */
   .table-card {
@@ -331,14 +367,9 @@
   }
   .table-header {
     display: flex; align-items: center; justify-content: space-between;
-    margin-bottom: 18px;
-    flex-wrap: wrap; gap: 12px;
+    margin-bottom: 18px; flex-wrap: wrap; gap: 12px;
   }
-  .table-title {
-    font-family: var(--display);
-    font-weight: 700;
-    font-size: 15px;
-  }
+  .table-title { font-family: var(--display); font-weight: 700; font-size: 15px; }
   .table-search {
     background: var(--surface2);
     border: 1px solid var(--border2);
@@ -366,17 +397,10 @@
     border-bottom: 1px solid var(--border);
     white-space: nowrap;
   }
-  tbody tr {
-    border-bottom: 1px solid var(--border);
-    transition: background 0.15s;
-  }
+  tbody tr { border-bottom: 1px solid var(--border); transition: background 0.15s; }
   tbody tr:last-child { border-bottom: none; }
   tbody tr:hover { background: var(--surface2); }
-  tbody td {
-    padding: 11px 14px;
-    font-size: 13px;
-    color: var(--text2);
-  }
+  tbody td { padding: 11px 14px; font-size: 13px; color: var(--text2); }
   tbody td:first-child { color: var(--text); font-weight: 500; }
   .badge {
     display: inline-block;
@@ -394,11 +418,7 @@
     border-top: 1px solid var(--border);
     flex-wrap: wrap; gap: 10px;
   }
-  .pagination-info {
-    font-family: var(--mono);
-    font-size: 11px;
-    color: var(--text3);
-  }
+  .pagination-info { font-family: var(--mono); font-size: 11px; color: var(--text3); }
   .pagination-btns { display: flex; gap: 6px; }
   .pg-btn {
     background: var(--surface2);
@@ -433,11 +453,7 @@
     animation: spin 0.8s linear infinite;
   }
   @keyframes spin { to { transform: rotate(360deg); } }
-  .loader-text {
-    font-family: var(--mono);
-    font-size: 13px;
-    color: var(--text3);
-  }
+  .loader-text { font-family: var(--mono); font-size: 13px; color: var(--text3); }
 
   /* ─── ALERT ─────────────────────────────────────────────── */
   .alert {
@@ -465,47 +481,31 @@
 
   /* ─── RANKING BARS ──────────────────────────────────────── */
   .ranking-list { display: flex; flex-direction: column; gap: 10px; overflow-y: auto; max-height: 280px; }
-  .ranking-item {
-    display: flex; align-items: center; gap: 12px;
-  }
+  .ranking-item { display: flex; align-items: center; gap: 12px; }
   .rank-num {
-    font-family: var(--mono);
-    font-size: 11px;
-    color: var(--text3);
-    width: 22px;
-    text-align: right;
-    flex-shrink: 0;
+    font-family: var(--mono); font-size: 11px; color: var(--text3);
+    width: 22px; text-align: right; flex-shrink: 0;
   }
   .rank-label {
-    font-size: 12px;
-    color: var(--text2);
-    flex: 1;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    font-size: 12px; color: var(--text2); flex: 1;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
   .rank-bar-wrap {
-    width: 100px;
-    height: 6px;
-    background: var(--border);
-    border-radius: 99px;
-    overflow: hidden;
-    flex-shrink: 0;
+    width: 100px; height: 6px;
+    background: var(--border); border-radius: 99px; overflow: hidden; flex-shrink: 0;
   }
   .rank-bar {
-    height: 100%;
-    background: var(--accent2);
-    border-radius: 99px;
-    transition: width 0.6s ease;
+    height: 100%; background: var(--accent2);
+    border-radius: 99px; transition: width 0.6s ease;
   }
   .rank-val {
-    font-family: var(--mono);
-    font-size: 12px;
-    color: var(--accent2);
-    width: 28px;
-    text-align: right;
-    flex-shrink: 0;
+    font-family: var(--mono); font-size: 12px; color: var(--accent2);
+    width: 28px; text-align: right; flex-shrink: 0;
   }
+
+  /* ─── DASHBOARD SECTIONS (inicialmente ocultas) ─────────── */
+  #dashboardContent { display: none; }
+  #dashboardContent.visible { display: block; }
 
   /* ─── RESPONSIVE ────────────────────────────────────────── */
   @media (max-width: 900px) {
@@ -519,8 +519,6 @@
     .kpi-grid { grid-template-columns: 1fr 1fr; }
     .filters-bar { grid-template-columns: 1fr 1fr; }
     .header-right { display: none; }
-    .config-panel { flex-direction: column; align-items: flex-start; }
-    .config-input { min-width: 0; width: 100%; }
   }
 
   /* ─── ANIMATIONS ────────────────────────────────────────── */
@@ -538,9 +536,9 @@
 <body>
 
 <!-- ─── LOADER ───────────────────────────────────────────────── -->
-<div id="loader">
+<div id="loader" class="hidden">
   <div class="loader-spinner"></div>
-  <span class="loader-text">Cargando datos…</span>
+  <span class="loader-text" id="loaderText">Procesando archivos…</span>
 </div>
 
 <!-- ─── APP ─────────────────────────────────────────────────── -->
@@ -552,15 +550,15 @@
       <div class="logo-icon">📊</div>
       <div>
         <div class="logo-text">Field Intelligence</div>
-        <div class="logo-sub">Dashboard de Visitas</div>
+        <div class="logo-sub">Dashboard de Encuestas</div>
       </div>
     </div>
     <div class="header-right">
       <span class="last-update">
         <span class="status-dot" id="statusDot"></span>
-        <span id="lastUpdate">Sin datos</span>
+        <span id="lastUpdate">Sin datos cargados</span>
       </span>
-      <button class="btn btn-ghost" onclick="reloadData()">⟳ Actualizar</button>
+      <button class="btn btn-ghost" onclick="clearAll()">🗑 Limpiar todo</button>
     </div>
   </header>
 
@@ -570,167 +568,197 @@
     <!-- ALERT -->
     <div class="alert" id="alertBox">
       <span>⚠</span>
-      <span id="alertMsg">Error de conexión</span>
+      <span id="alertMsg">Error</span>
     </div>
 
-    <!-- CONNECTION CONFIG PANEL -->
-    <div class="config-panel animate">
-      <span class="config-label">🔌 Fuente de datos</span>
-      <select class="config-select" id="sourceMode" onchange="onSourceModeChange()">
-        <option value="csv">CSV (Google Sheets público)</option>
-        <option value="script">Apps Script (Web App)</option>
-      </select>
-      <input
-        class="config-input"
-        id="sourceUrl"
-        type="text"
-        placeholder="Pega aquí la URL de tu Apps Script Web App…"
-        value=""
-        style="display:none"
-      />
-      <button class="btn btn-primary" onclick="reloadData()">
-        ⟳ Actualizar conexión
-      </button>
-    </div>
+    <!-- ══════════════════════════════════════════════════════
+         PANEL DE CARGA DE ARCHIVOS EXCEL
+    ══════════════════════════════════════════════════════ -->
+    <div class="upload-panel animate">
+      <div class="upload-panel-header">
+        <div class="upload-panel-title">
+          📂 Cargar archivos Excel
+          <span>hasta 7 archivos .xlsx</span>
+        </div>
+        <div id="uploadStats" style="font-family:var(--mono);font-size:11px;color:var(--text3)"></div>
+      </div>
 
-    <!-- FILTERS BAR -->
-    <div class="filters-bar animate">
-      <div class="filter-group">
-        <label class="filter-label">Desde</label>
-        <input class="filter-input" type="date" id="filterFrom" />
+      <!-- Zona de arrastre / selección -->
+      <div class="drop-zone" id="dropZone">
+        <input
+          type="file"
+          id="fileInput"
+          multiple
+          accept=".xlsx,.xls"
+          onchange="handleFileSelect(this.files)"
+        />
+        <div class="drop-icon">📁</div>
+        <div class="drop-title">Arrastrá los archivos aquí o hacé clic para seleccionar</div>
+        <div class="drop-sub">
+          Soporta múltiples archivos · <strong>Solo .xlsx / .xls</strong> · Todas las hojas serán procesadas
+        </div>
       </div>
-      <div class="filter-group">
-        <label class="filter-label">Hasta</label>
-        <input class="filter-input" type="date" id="filterTo" />
-      </div>
-      <div class="filter-group">
-        <label class="filter-label">Supervisor</label>
-        <select class="filter-select" id="filterSupervisor">
-          <option value="">Todos</option>
-        </select>
-      </div>
-      <div class="filter-group">
-        <label class="filter-label">Formulario</label>
-        <select class="filter-select" id="filterForm">
-          <option value="">Todos</option>
-        </select>
-      </div>
-      <div class="filter-group filter-actions">
-        <button class="btn btn-primary" onclick="applyFilters()">Aplicar</button>
-        <button class="btn btn-ghost" onclick="clearFilters()">Limpiar</button>
+
+      <!-- Lista de archivos seleccionados -->
+      <div class="file-list" id="fileList"></div>
+
+      <!-- Acciones -->
+      <div class="upload-actions" id="uploadActions" style="display:none">
+        <button class="btn btn-primary" onclick="processAllFiles()">
+          ▶ Procesar y generar dashboard
+        </button>
+        <button class="btn btn-ghost" onclick="clearFiles()">
+          Limpiar archivos
+        </button>
       </div>
     </div>
 
-    <!-- KPI CARDS -->
-    <div class="kpi-grid">
-      <div class="kpi-card animate" style="--card-accent: var(--accent)">
-        <div class="kpi-icon">📋</div>
-        <div class="kpi-label">Total Visitas</div>
-        <div class="kpi-value" id="kpiTotal">—</div>
-        <div class="kpi-sub">registros filtrados</div>
-      </div>
-      <div class="kpi-card animate" style="--card-accent: var(--accent2)">
-        <div class="kpi-icon">👤</div>
-        <div class="kpi-label">Supervisores</div>
-        <div class="kpi-value" id="kpiSupervisors">—</div>
-        <div class="kpi-sub">activos en el período</div>
-      </div>
-      <div class="kpi-card animate" style="--card-accent: var(--accent3)">
-        <div class="kpi-icon">🏪</div>
-        <div class="kpi-label">Puntos de Venta</div>
-        <div class="kpi-value" id="kpiPdv">—</div>
-        <div class="kpi-sub">visitados</div>
-      </div>
-      <div class="kpi-card animate" style="--card-accent: var(--accent4)">
-        <div class="kpi-icon">📝</div>
-        <div class="kpi-label">Formularios</div>
-        <div class="kpi-value" id="kpiForms">—</div>
-        <div class="kpi-sub">tipos distintos</div>
-      </div>
-      <div class="kpi-card animate" style="--card-accent: #ffcc00">
-        <div class="kpi-icon">📅</div>
-        <div class="kpi-label">Días con actividad</div>
-        <div class="kpi-value" id="kpiDays">—</div>
-        <div class="kpi-sub">días únicos</div>
-      </div>
-    </div>
+    <!-- ══════════════════════════════════════════════════════
+         CONTENIDO DEL DASHBOARD (visible tras procesar)
+    ══════════════════════════════════════════════════════ -->
+    <div id="dashboardContent">
 
-    <!-- CHARTS -->
-    <div class="charts-grid">
-
-      <!-- Visitas por Supervisor -->
-      <div class="chart-card animate">
-        <div class="chart-header">
-          <span class="chart-title">Visitas por Supervisor</span>
-          <span class="chart-tag">BARRAS</span>
+      <!-- FILTERS BAR -->
+      <div class="filters-bar animate">
+        <div class="filter-group">
+          <label class="filter-label">Desde</label>
+          <input class="filter-input" type="date" id="filterFrom" />
         </div>
-        <div class="chart-wrap">
-          <canvas id="chartSupervisor"></canvas>
+        <div class="filter-group">
+          <label class="filter-label">Hasta</label>
+          <input class="filter-input" type="date" id="filterTo" />
+        </div>
+        <div class="filter-group">
+          <label class="filter-label">Supervisor (Empleado)</label>
+          <select class="filter-select" id="filterSupervisor">
+            <option value="">Todos</option>
+          </select>
+        </div>
+        <div class="filter-group">
+          <label class="filter-label">Formulario (Rótulo)</label>
+          <select class="filter-select" id="filterForm">
+            <option value="">Todos</option>
+          </select>
+        </div>
+        <div class="filter-group filter-actions">
+          <button class="btn btn-primary" onclick="applyFilters()">Aplicar</button>
+          <button class="btn btn-ghost" onclick="clearFilters()">Limpiar</button>
         </div>
       </div>
 
-      <!-- Visitas por Formulario -->
-      <div class="chart-card animate">
-        <div class="chart-header">
-          <span class="chart-title">Visitas por Formulario</span>
-          <span class="chart-tag">BARRAS</span>
+      <!-- KPI CARDS -->
+      <div class="kpi-grid">
+        <div class="kpi-card animate" style="--card-accent: var(--accent)">
+          <div class="kpi-icon">📋</div>
+          <div class="kpi-label">Total Encuestas</div>
+          <div class="kpi-value" id="kpiTotal">—</div>
+          <div class="kpi-sub">registros filtrados</div>
         </div>
-        <div class="chart-wrap">
-          <canvas id="chartForm"></canvas>
+        <div class="kpi-card animate" style="--card-accent: var(--accent2)">
+          <div class="kpi-icon">👤</div>
+          <div class="kpi-label">Supervisores</div>
+          <div class="kpi-value" id="kpiSupervisors">—</div>
+          <div class="kpi-sub">empleados activos</div>
+        </div>
+        <div class="kpi-card animate" style="--card-accent: var(--accent3)">
+          <div class="kpi-icon">🏪</div>
+          <div class="kpi-label">Puntos de Venta</div>
+          <div class="kpi-value" id="kpiPdv">—</div>
+          <div class="kpi-sub">PDVs visitados</div>
+        </div>
+        <div class="kpi-card animate" style="--card-accent: var(--accent4)">
+          <div class="kpi-icon">📝</div>
+          <div class="kpi-label">Formularios</div>
+          <div class="kpi-value" id="kpiForms">—</div>
+          <div class="kpi-sub">rótulos distintos</div>
+        </div>
+        <div class="kpi-card animate" style="--card-accent: #ffcc00">
+          <div class="kpi-icon">📅</div>
+          <div class="kpi-label">Días con actividad</div>
+          <div class="kpi-value" id="kpiDays">—</div>
+          <div class="kpi-sub">días únicos</div>
         </div>
       </div>
 
-      <!-- Evolución por fecha (full width) -->
-      <div class="chart-card full-width animate">
-        <div class="chart-header">
-          <span class="chart-title">Evolución de Visitas por Fecha</span>
-          <span class="chart-tag">LÍNEA</span>
+      <!-- CHARTS -->
+      <div class="charts-grid">
+
+        <!-- Encuestas por Supervisor -->
+        <div class="chart-card animate">
+          <div class="chart-header">
+            <span class="chart-title">Encuestas por Supervisor</span>
+            <span class="chart-tag">BARRAS</span>
+          </div>
+          <div class="chart-wrap">
+            <canvas id="chartSupervisor"></canvas>
+          </div>
         </div>
-        <div class="chart-wrap">
-          <canvas id="chartDate"></canvas>
+
+        <!-- Encuestas por Formulario -->
+        <div class="chart-card animate">
+          <div class="chart-header">
+            <span class="chart-title">Encuestas por Formulario</span>
+            <span class="chart-tag">BARRAS</span>
+          </div>
+          <div class="chart-wrap">
+            <canvas id="chartForm"></canvas>
+          </div>
+        </div>
+
+        <!-- Evolución por fecha (ancho completo) -->
+        <div class="chart-card full-width animate">
+          <div class="chart-header">
+            <span class="chart-title">Evolución de Encuestas por Fecha</span>
+            <span class="chart-tag">LÍNEA</span>
+          </div>
+          <div class="chart-wrap">
+            <canvas id="chartDate"></canvas>
+          </div>
+        </div>
+
+        <!-- Top PDV (ranking) -->
+        <div class="chart-card animate" style="grid-column: 1 / -1;">
+          <div class="chart-header">
+            <span class="chart-title">Top Puntos de Venta</span>
+            <span class="chart-tag">RANKING</span>
+          </div>
+          <div class="ranking-list" id="rankingPdv"></div>
+        </div>
+
+      </div>
+
+      <!-- DATA TABLE -->
+      <div class="table-card animate">
+        <div class="table-header">
+          <div class="table-title">Detalle de Encuestas</div>
+          <input class="table-search" id="tableSearch" type="text" placeholder="Buscar…" oninput="renderTable()" />
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Fecha / Hora</th>
+                <th>Empleado (Supervisor)</th>
+                <th>PDV</th>
+                <th>Formulario (Rótulo)</th>
+                <th>Archivo fuente</th>
+              </tr>
+            </thead>
+            <tbody id="tableBody"></tbody>
+          </table>
+          <div id="tableEmpty" class="empty" style="display:none">
+            <div class="empty-icon">🔍</div>
+            <div>Sin resultados para los filtros aplicados</div>
+          </div>
+        </div>
+        <div class="pagination">
+          <span class="pagination-info" id="paginationInfo"></span>
+          <div class="pagination-btns" id="paginationBtns"></div>
         </div>
       </div>
 
-      <!-- Top Puntos de Venta (ranking) -->
-      <div class="chart-card animate" style="grid-column: 1 / -1;">
-        <div class="chart-header">
-          <span class="chart-title">Top Puntos de Venta</span>
-          <span class="chart-tag">RANKING</span>
-        </div>
-        <div class="ranking-list" id="rankingPdv"></div>
-      </div>
-
-    </div>
-
-    <!-- DATA TABLE -->
-    <div class="table-card animate">
-      <div class="table-header">
-        <div class="table-title">Detalle de Visitas</div>
-        <input class="table-search" id="tableSearch" type="text" placeholder="Buscar…" oninput="renderTable()" />
-      </div>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>Fecha</th>
-              <th>Supervisor</th>
-              <th>Punto de Venta</th>
-              <th>Formulario</th>
-            </tr>
-          </thead>
-          <tbody id="tableBody"></tbody>
-        </table>
-        <div id="tableEmpty" class="empty" style="display:none">
-          <div class="empty-icon">🔍</div>
-          <div>Sin resultados para los filtros aplicados</div>
-        </div>
-      </div>
-      <div class="pagination">
-        <span class="pagination-info" id="paginationInfo"></span>
-        <div class="pagination-btns" id="paginationBtns"></div>
-      </div>
-    </div>
+    </div><!-- /dashboardContent -->
 
   </main>
 </div>
@@ -738,10 +766,8 @@
 <!-- ─── SCRIPT ───────────────────────────────────────────────── -->
 <script>
 /* ════════════════════════════════════════════════════════════
-   CONFIGURACIÓN
+   PALETA Y COLORES
 ════════════════════════════════════════════════════════════ */
-const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRQbCxA8Y5drctHDm-l8_eakZZuESCuvthrAMEVtckqm4Ijgd_jb8N_Ufh7F7iGWBS5njWZWBURYh1v/pub?gid=0&single=true&output=csv';
-
 const COLORS = {
   accent:  '#00e5a0',
   accent2: '#0097ff',
@@ -751,7 +777,6 @@ const COLORS = {
   grid:    'rgba(255,255,255,0.06)',
   text2:   '#8b95a8',
 };
-
 const PALETTE = [
   '#00e5a0','#0097ff','#ff6b35','#c77dff',
   '#ffcc00','#00c8e0','#ff4d6d','#7bc96f',
@@ -759,189 +784,319 @@ const PALETTE = [
 ];
 
 /* ════════════════════════════════════════════════════════════
-   STATE
+   ESTADO GLOBAL
 ════════════════════════════════════════════════════════════ */
-let allData    = [];   // raw parsed rows
-let filtered   = [];   // after filters
-let currentPage = 1;
-const PAGE_SIZE = 15;
-
-let charts = {};       // Chart instances
+let pendingFiles = [];   // File objects seleccionados por el usuario
+let allData      = [];   // Todos los registros unificados (tras procesar)
+let filtered     = [];   // Dataset después de aplicar filtros
+let currentPage  = 1;
+const PAGE_SIZE  = 15;
+let charts       = {};   // Instancias de Chart.js activas
 
 /* ════════════════════════════════════════════════════════════
-   INIT
+   DRAG & DROP en la zona de carga
 ════════════════════════════════════════════════════════════ */
-document.addEventListener('DOMContentLoaded', () => {
-  reloadData();
-  // bind filter fields to apply on Enter
-  ['filterFrom','filterTo','filterSupervisor','filterForm'].forEach(id => {
-    const el = document.getElementById(id);
-    el.addEventListener('keydown', e => { if (e.key === 'Enter') applyFilters(); });
-    el.addEventListener('change', applyFilters);
-  });
+const dropZone = document.getElementById('dropZone');
+
+dropZone.addEventListener('dragover', e => {
+  e.preventDefault();
+  dropZone.classList.add('drag-over');
+});
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('drag-over');
+  handleFileSelect(e.dataTransfer.files);
 });
 
 /* ════════════════════════════════════════════════════════════
-   DATA LOADING
+   SELECCIÓN DE ARCHIVOS
+   - Agrega nuevos archivos a pendingFiles (sin duplicar por nombre)
+   - Renderiza la lista de archivos
 ════════════════════════════════════════════════════════════ */
-async function reloadData() {
-  showLoader(true);
+function handleFileSelect(fileList) {
+  const newFiles = Array.from(fileList).filter(f =>
+    /\.(xlsx|xls)$/i.test(f.name)
+  );
+
+  if (!newFiles.length) {
+    showAlert('Solo se aceptan archivos .xlsx o .xls');
+    return;
+  }
+
+  // Evitar duplicados por nombre
+  newFiles.forEach(f => {
+    if (!pendingFiles.find(p => p.name === f.name)) {
+      pendingFiles.push(f);
+    }
+  });
+
+  renderFileList();
+}
+
+/* Renderiza la lista de archivos en espera */
+function renderFileList() {
+  const list    = document.getElementById('fileList');
+  const actions = document.getElementById('uploadActions');
+
+  if (!pendingFiles.length) {
+    list.innerHTML = '';
+    actions.style.display = 'none';
+    return;
+  }
+
+  list.innerHTML = pendingFiles.map((f, i) => `
+    <div class="file-item" id="fileItem_${i}">
+      <span class="file-icon">📄</span>
+      <div class="file-info">
+        <div class="file-name">${f.name}</div>
+        <div class="file-meta">${formatFileSize(f.size)} · En espera</div>
+      </div>
+      <button class="file-remove" onclick="removeFile(${i})" title="Quitar archivo">✕</button>
+    </div>
+  `).join('');
+
+  actions.style.display = 'flex';
+
+  document.getElementById('uploadStats').textContent =
+    `${pendingFiles.length} archivo${pendingFiles.length > 1 ? 's' : ''} seleccionado${pendingFiles.length > 1 ? 's' : ''}`;
+}
+
+/* Quitar un archivo de la lista */
+function removeFile(index) {
+  pendingFiles.splice(index, 1);
+  renderFileList();
+}
+
+/* Limpiar todos los archivos pendientes */
+function clearFiles() {
+  pendingFiles = [];
+  document.getElementById('fileInput').value = '';
+  renderFileList();
+}
+
+/* Limpiar todo (archivos + datos + dashboard) */
+function clearAll() {
+  clearFiles();
+  allData = [];
+  filtered = [];
+  document.getElementById('dashboardContent').classList.remove('visible');
+  document.getElementById('statusDot').classList.remove('live');
+  document.getElementById('lastUpdate').textContent = 'Sin datos cargados';
+  document.getElementById('uploadStats').textContent = '';
+  destroyAllCharts();
   hideAlert();
-  try {
-    const mode = document.getElementById('sourceMode').value;
-    if (mode === 'script') {
-      await loadFromScript();
-    } else {
-      await loadFromCSV();
-    }
-  } catch(err) {
-    showAlert('Error al cargar datos: ' + err.message);
-    showLoader(false);
-  }
-}
-
-// ── Load from CSV ───────────────────────────────────────────
-async function loadFromCSV() {
-  const res = await fetch(CSV_URL + '&_=' + Date.now());
-  if (!res.ok) throw new Error('HTTP ' + res.status);
-  const text = await res.text();
-  const rows = parseCSV(text);
-  processData(rows);
-}
-
-// ── Load from Apps Script ───────────────────────────────────
-async function loadFromScript() {
-  const url = document.getElementById('sourceUrl').value.trim();
-  if (!url) throw new Error('Pegá la URL del Apps Script Web App en el campo de configuración');
-  const res = await fetch(url);
-  if (!res.ok) throw new Error('HTTP ' + res.status);
-  const json = await res.json();
-  // Esperamos array de objetos con claves: FECHA, SUPERVISOR, PUNTO_DE_VENTA, FORMULARIO
-  const rows = json.map(r => ({
-    fecha:      r.FECHA || r.fecha || '',
-    supervisor: r.SUPERVISOR || r.supervisor || '',
-    pdv:        r.PUNTO_DE_VENTA || r.pdv || r['PUNTO DE VENTA'] || '',
-    formulario: r.FORMULARIO || r.formulario || '',
-  }));
-  processData(rows, false);
-}
-
-// ── Parse CSV text ──────────────────────────────────────────
-function parseCSV(text) {
-  const lines = text.trim().split('\n');
-  if (lines.length < 2) return [];
-  // Skip header (row 0)
-  const rows = [];
-  for (let i = 1; i < lines.length; i++) {
-    const cols = splitCSVLine(lines[i]);
-    if (cols.length < 4) continue;
-    rows.push({
-      fecha:      cols[0].trim(),
-      supervisor: cols[1].trim(),
-      pdv:        cols[2].trim(),
-      formulario: cols[3].trim(),
-    });
-  }
-  return rows;
-}
-
-// ── Handle quoted CSV fields ────────────────────────────────
-function splitCSVLine(line) {
-  const result = [];
-  let current = '';
-  let inQuotes = false;
-  for (let i = 0; i < line.length; i++) {
-    const ch = line[i];
-    if (ch === '"') {
-      if (inQuotes && line[i+1] === '"') { current += '"'; i++; }
-      else inQuotes = !inQuotes;
-    } else if (ch === ',' && !inQuotes) {
-      result.push(current);
-      current = '';
-    } else {
-      current += ch;
-    }
-  }
-  result.push(current);
-  return result;
 }
 
 /* ════════════════════════════════════════════════════════════
-   DATA PROCESSING
+   PROCESAMIENTO DE ARCHIVOS EXCEL
+   Para cada archivo:
+     1. Leer con FileReader como ArrayBuffer
+     2. Parsear con SheetJS
+     3. Iterar todas las hojas
+     4. Extraer columnas B (rótulo), E (PDV), I (fecha/hora), J (empleado)
+     5. Normalizar fechas
 ════════════════════════════════════════════════════════════ */
-function processData(rows, isCSV = true) {
-  // Normalize dates — CSV dates might be DD/MM/YYYY, YYYY-MM-DD, etc.
-  allData = rows.map(r => {
-    const dateNorm = normalizeDate(r.fecha);
-    return {
-      ...r,
-      dateISO: dateNorm,      // YYYY-MM-DD for sorting/filtering
-      dateDisplay: formatDateDisplay(dateNorm),
-    };
-  }).filter(r => r.fecha && r.supervisor);
+async function processAllFiles() {
+  if (!pendingFiles.length) return;
 
+  showLoader(true, 'Procesando archivos…');
+  hideAlert();
+  allData = [];
+
+  for (let i = 0; i < pendingFiles.length; i++) {
+    const file = pendingFiles[i];
+    setLoaderText(`Leyendo ${file.name} (${i + 1}/${pendingFiles.length})…`);
+    markFileStatus(i, 'loading', 'Procesando…');
+
+    try {
+      const rows = await readExcelFile(file);
+      allData.push(...rows);
+      markFileStatus(i, 'ok', `✓ ${rows.length} registros extraídos`);
+    } catch (err) {
+      markFileStatus(i, 'err', `Error: ${err.message}`);
+      console.error(`Error en ${file.name}:`, err);
+    }
+  }
+
+  showLoader(false);
+
+  if (!allData.length) {
+    showAlert('No se encontraron datos válidos en los archivos. Verificá la estructura (columnas B, E, I, J).');
+    return;
+  }
+
+  // Mostrar dashboard
   populateDropdowns();
   applyFilters();
   updateLastUpdate();
-  showLoader(false);
+  document.getElementById('dashboardContent').classList.add('visible');
   document.getElementById('statusDot').classList.add('live');
+
+  // Scroll suave al dashboard
+  setTimeout(() => {
+    document.getElementById('dashboardContent').scrollIntoView({ behavior: 'smooth' });
+  }, 200);
 }
 
-function normalizeDate(raw) {
-  if (!raw) return '';
-  // Already ISO?
-  if (/^\d{4}-\d{2}-\d{2}/.test(raw)) return raw.slice(0,10);
-  // DD/MM/YYYY
-  const m = raw.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
-  if (m) return `${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`;
-  // Try native parse
-  const d = new Date(raw);
-  if (!isNaN(d)) return d.toISOString().slice(0,10);
-  return raw;
-}
+/* Lee un archivo Excel y devuelve array de objetos normalizados */
+function readExcelFile(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
 
-function formatDateDisplay(iso) {
-  if (!iso || iso.length < 10) return iso;
-  const [y,m,d] = iso.split('-');
-  return `${d}/${m}/${y}`;
+    reader.onload = (e) => {
+      try {
+        const data    = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, { type: 'array', cellDates: true });
+
+        const allRows = [];
+
+        // Procesar TODAS las hojas
+        workbook.SheetNames.forEach(sheetName => {
+          const sheet = workbook.Sheets[sheetName];
+
+          // Convertir hoja a array de arrays (raw)
+          // header:1 → primera fila como encabezado, devuelve arrays
+          const raw = XLSX.utils.sheet_to_json(sheet, {
+            header: 1,
+            defval: '',
+            blankrows: false,
+          });
+
+          if (raw.length < 2) return; // Hoja sin datos
+
+          // Fila 0 = encabezados, ignorar
+          // Columnas (índice 0-based):
+          //   A=0, B=1, C=2, D=3, E=4, F=5, G=6, H=7, I=8, J=9
+          for (let r = 1; r < raw.length; r++) {
+            const row = raw[r];
+
+            // Extraer valores relevantes
+            const formulario = String(row[1] || '').trim();  // Columna B: Rótulo
+            const pdv        = String(row[4] || '').trim();  // Columna E: PDV
+            const fechaRaw   = row[8];                       // Columna I: Fecha y hora
+            const empleado   = String(row[9] || '').trim();  // Columna J: Empleado
+
+            // Ignorar filas sin datos esenciales
+            if (!formulario && !empleado) continue;
+            if (!fechaRaw && !pdv) continue;
+
+            // Normalizar fecha
+            const { dateISO, dateDisplay, dateTime } = normalizeDate(fechaRaw);
+
+            allRows.push({
+              formulario,
+              pdv:        pdv        || '(sin PDV)',
+              empleado:   empleado   || '(sin empleado)',
+              dateISO,
+              dateDisplay,
+              dateTime,
+              sourceFile: file.name,
+              sheetName,
+            });
+          }
+        });
+
+        resolve(allRows);
+      } catch (err) {
+        reject(err);
+      }
+    };
+
+    reader.onerror = () => reject(new Error('Error al leer el archivo'));
+    reader.readAsArrayBuffer(file);
+  });
 }
 
 /* ════════════════════════════════════════════════════════════
-   DROPDOWNS
+   NORMALIZACIÓN DE FECHAS
+   SheetJS con cellDates:true devuelve objetos Date para celdas de fecha.
+   También puede devolver strings o números seriales de Excel.
+════════════════════════════════════════════════════════════ */
+function normalizeDate(raw) {
+  if (!raw) return { dateISO: '', dateDisplay: '', dateTime: '' };
+
+  let d = null;
+
+  if (raw instanceof Date && !isNaN(raw)) {
+    d = raw;
+  } else if (typeof raw === 'number') {
+    // Número serial de Excel → fecha
+    d = XLSX.SSF.parse_date_code(raw);
+    if (d) {
+      d = new Date(d.y, d.m - 1, d.d, d.H || 0, d.M || 0, d.S || 0);
+    }
+  } else {
+    const s = String(raw).trim();
+    // ISO YYYY-MM-DD o YYYY-MM-DDTHH:MM:SS
+    if (/^\d{4}-\d{2}-\d{2}/.test(s)) {
+      d = new Date(s);
+    } else {
+      // DD/MM/YYYY o DD-MM-YYYY
+      const m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+      if (m) {
+        d = new Date(parseInt(m[3]), parseInt(m[2]) - 1, parseInt(m[1]));
+      } else {
+        d = new Date(s);
+      }
+    }
+  }
+
+  if (!d || isNaN(d.getTime())) {
+    return { dateISO: '', dateDisplay: String(raw), dateTime: String(raw) };
+  }
+
+  const pad   = n => String(n).padStart(2, '0');
+  const y     = d.getFullYear();
+  const mo    = pad(d.getMonth() + 1);
+  const day   = pad(d.getDate());
+  const hr    = pad(d.getHours());
+  const min   = pad(d.getMinutes());
+
+  return {
+    dateISO:     `${y}-${mo}-${day}`,
+    dateDisplay: `${day}/${mo}/${y}`,
+    dateTime:    `${day}/${mo}/${y} ${hr}:${min}`,
+  };
+}
+
+/* ════════════════════════════════════════════════════════════
+   DROPDOWNS DE FILTROS
 ════════════════════════════════════════════════════════════ */
 function populateDropdowns() {
-  const supervisors = [...new Set(allData.map(r => r.supervisor))].sort();
+  const supervisors = [...new Set(allData.map(r => r.empleado))].sort();
   const forms       = [...new Set(allData.map(r => r.formulario))].sort();
   fillSelect('filterSupervisor', supervisors);
   fillSelect('filterForm', forms);
 }
 
 function fillSelect(id, values) {
-  const sel = document.getElementById(id);
+  const sel     = document.getElementById(id);
   const current = sel.value;
   sel.innerHTML = '<option value="">Todos</option>';
   values.forEach(v => {
     if (!v) return;
-    const opt = document.createElement('option');
-    opt.value = v; opt.textContent = v;
+    const opt       = document.createElement('option');
+    opt.value       = v;
+    opt.textContent = v;
     sel.appendChild(opt);
   });
   if (current) sel.value = current;
 }
 
 /* ════════════════════════════════════════════════════════════
-   FILTERS
+   FILTROS
 ════════════════════════════════════════════════════════════ */
 function applyFilters() {
-  const from  = document.getElementById('filterFrom').value;
-  const to    = document.getElementById('filterTo').value;
-  const sup   = document.getElementById('filterSupervisor').value;
-  const form  = document.getElementById('filterForm').value;
+  const from = document.getElementById('filterFrom').value;
+  const to   = document.getElementById('filterTo').value;
+  const sup  = document.getElementById('filterSupervisor').value;
+  const form = document.getElementById('filterForm').value;
 
   filtered = allData.filter(r => {
     if (from && r.dateISO && r.dateISO < from) return false;
     if (to   && r.dateISO && r.dateISO > to)   return false;
-    if (sup  && r.supervisor !== sup)            return false;
+    if (sup  && r.empleado   !== sup)            return false;
     if (form && r.formulario !== form)           return false;
     return true;
   });
@@ -953,40 +1108,47 @@ function applyFilters() {
 }
 
 function clearFilters() {
-  document.getElementById('filterFrom').value = '';
-  document.getElementById('filterTo').value   = '';
-  document.getElementById('filterSupervisor').value = '';
-  document.getElementById('filterForm').value = '';
+  ['filterFrom','filterTo','filterSupervisor','filterForm']
+    .forEach(id => {
+      const el = document.getElementById(id);
+      if (el.tagName === 'SELECT') el.value = '';
+      else el.value = '';
+    });
   applyFilters();
 }
 
+// Escuchar cambios en filtros de fecha y select
+['filterFrom','filterTo','filterSupervisor','filterForm'].forEach(id => {
+  document.addEventListener('DOMContentLoaded', () => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.addEventListener('change', applyFilters);
+      el.addEventListener('keydown', e => { if (e.key === 'Enter') applyFilters(); });
+    }
+  });
+});
+
 /* ════════════════════════════════════════════════════════════
-   KPI CARDS
+   KPI CARDS — con animación de conteo
 ════════════════════════════════════════════════════════════ */
 function renderKPIs() {
-  const total       = filtered.length;
-  const supervisors = new Set(filtered.map(r => r.supervisor)).size;
-  const pdvs        = new Set(filtered.map(r => r.pdv)).size;
-  const forms       = new Set(filtered.map(r => r.formulario)).size;
-  const days        = new Set(filtered.map(r => r.dateISO)).size;
-
-  animateNumber('kpiTotal', total);
-  animateNumber('kpiSupervisors', supervisors);
-  animateNumber('kpiPdv', pdvs);
-  animateNumber('kpiForms', forms);
-  animateNumber('kpiDays', days);
+  animateNumber('kpiTotal',       filtered.length);
+  animateNumber('kpiSupervisors', new Set(filtered.map(r => r.empleado)).size);
+  animateNumber('kpiPdv',         new Set(filtered.map(r => r.pdv)).size);
+  animateNumber('kpiForms',       new Set(filtered.map(r => r.formulario)).size);
+  animateNumber('kpiDays',        new Set(filtered.map(r => r.dateISO)).size);
 }
 
 function animateNumber(id, target) {
-  const el = document.getElementById(id);
-  const start = parseInt(el.textContent) || 0;
+  const el       = document.getElementById(id);
+  const start    = parseInt(el.textContent) || 0;
   const duration = 400;
-  const step = (Date.now() - 0);
-  let startTime = null;
+  let startTime  = null;
+
   function update(ts) {
     if (!startTime) startTime = ts;
     const progress = Math.min((ts - startTime) / duration, 1);
-    const ease = 1 - Math.pow(1 - progress, 3);
+    const ease     = 1 - Math.pow(1 - progress, 3);
     el.textContent = Math.round(start + (target - start) * ease);
     if (progress < 1) requestAnimationFrame(update);
   }
@@ -994,19 +1156,19 @@ function animateNumber(id, target) {
 }
 
 /* ════════════════════════════════════════════════════════════
-   AGGREGATE HELPERS
+   HELPER: contar ocurrencias por campo
 ════════════════════════════════════════════════════════════ */
 function countBy(data, key) {
   const counts = {};
   data.forEach(r => {
-    const v = r[key] || '(vacío)';
-    counts[v] = (counts[v] || 0) + 1;
+    const v      = r[key] || '(vacío)';
+    counts[v]    = (counts[v] || 0) + 1;
   });
-  return Object.entries(counts).sort((a,b) => b[1] - a[1]);
+  return Object.entries(counts).sort((a, b) => b[1] - a[1]);
 }
 
 /* ════════════════════════════════════════════════════════════
-   CHARTS
+   GRÁFICOS
 ════════════════════════════════════════════════════════════ */
 const CHART_DEFAULTS = {
   responsive: true,
@@ -1015,21 +1177,21 @@ const CHART_DEFAULTS = {
     legend: { display: false },
     tooltip: {
       backgroundColor: '#181c22',
-      borderColor: '#2e3440',
+      borderColor:     '#2e3440',
       borderWidth: 1,
-      titleColor: '#e8edf5',
-      bodyColor: '#8b95a8',
+      titleColor:  '#e8edf5',
+      bodyColor:   '#8b95a8',
       padding: 12,
       cornerRadius: 8,
     }
   },
   scales: {
     x: {
-      grid: { color: COLORS.grid },
+      grid:  { color: COLORS.grid },
       ticks: { color: COLORS.text2, font: { family: 'DM Mono', size: 11 } },
     },
     y: {
-      grid: { color: COLORS.grid },
+      grid:  { color: COLORS.grid },
       ticks: { color: COLORS.text2, font: { family: 'DM Mono', size: 11 }, stepSize: 1 },
       beginAtZero: true,
     }
@@ -1040,6 +1202,10 @@ function destroyChart(key) {
   if (charts[key]) { charts[key].destroy(); charts[key] = null; }
 }
 
+function destroyAllCharts() {
+  Object.keys(charts).forEach(k => destroyChart(k));
+}
+
 function renderCharts() {
   renderSupervisorChart();
   renderFormChart();
@@ -1047,17 +1213,17 @@ function renderCharts() {
   renderRanking();
 }
 
-// ── Supervisor Bar ──────────────────────────────────────────
+/* Gráfico de barras: encuestas por Supervisor (Empleado) */
 function renderSupervisorChart() {
   destroyChart('supervisor');
-  const data = countBy(filtered, 'supervisor');
-  const ctx = document.getElementById('chartSupervisor').getContext('2d');
+  const data = countBy(filtered, 'empleado');
+  const ctx  = document.getElementById('chartSupervisor').getContext('2d');
   charts.supervisor = new Chart(ctx, {
     type: 'bar',
     data: {
-      labels: data.map(d => d[0]),
+      labels: data.map(d => truncate(d[0], 20)),
       datasets: [{
-        data: data.map(d => d[1]),
+        data:            data.map(d => d[1]),
         backgroundColor: data.map((_, i) => PALETTE[i % PALETTE.length] + 'cc'),
         borderColor:     data.map((_, i) => PALETTE[i % PALETTE.length]),
         borderWidth: 1,
@@ -1071,26 +1237,26 @@ function renderSupervisorChart() {
         ...CHART_DEFAULTS.plugins,
         tooltip: {
           ...CHART_DEFAULTS.plugins.tooltip,
-          callbacks: { label: ctx => ` ${ctx.parsed.y} visitas` }
+          callbacks: { label: ctx => ` ${ctx.parsed.y} encuestas` }
         }
       }
     }
   });
 }
 
-// ── Formulario Bar ──────────────────────────────────────────
+/* Gráfico de barras: encuestas por Formulario (Rótulo) */
 function renderFormChart() {
   destroyChart('form');
   const data = countBy(filtered, 'formulario');
-  const ctx = document.getElementById('chartForm').getContext('2d');
+  const ctx  = document.getElementById('chartForm').getContext('2d');
   charts.form = new Chart(ctx, {
     type: 'bar',
     data: {
       labels: data.map(d => truncate(d[0], 22)),
       datasets: [{
-        data: data.map(d => d[1]),
-        backgroundColor: data.map((_, i) => PALETTE[(i+4) % PALETTE.length] + 'cc'),
-        borderColor:     data.map((_, i) => PALETTE[(i+4) % PALETTE.length]),
+        data:            data.map(d => d[1]),
+        backgroundColor: data.map((_, i) => PALETTE[(i + 4) % PALETTE.length] + 'cc'),
+        borderColor:     data.map((_, i) => PALETTE[(i + 4) % PALETTE.length]),
         borderWidth: 1,
         borderRadius: 6,
         borderSkipped: false,
@@ -1102,18 +1268,14 @@ function renderFormChart() {
         ...CHART_DEFAULTS.scales,
         x: {
           ...CHART_DEFAULTS.scales.x,
-          ticks: {
-            ...CHART_DEFAULTS.scales.x.ticks,
-            maxRotation: 30,
-            minRotation: 20,
-          }
+          ticks: { ...CHART_DEFAULTS.scales.x.ticks, maxRotation: 30, minRotation: 20 }
         }
       }
     }
   });
 }
 
-// ── Date Line ───────────────────────────────────────────────
+/* Gráfico de línea: evolución temporal de encuestas */
 function renderDateChart() {
   destroyChart('date');
   const counts = {};
@@ -1121,25 +1283,29 @@ function renderDateChart() {
     if (!r.dateISO) return;
     counts[r.dateISO] = (counts[r.dateISO] || 0) + 1;
   });
-  const sorted = Object.entries(counts).sort((a,b) => a[0].localeCompare(b[0]));
-  const labels = sorted.map(s => formatDateDisplay(s[0]));
+  const sorted = Object.entries(counts).sort((a, b) => a[0].localeCompare(b[0]));
+  const labels = sorted.map(s => {
+    const [y, m, d] = s[0].split('-');
+    return `${d}/${m}/${y}`;
+  });
   const values = sorted.map(s => s[1]);
-  const ctx = document.getElementById('chartDate').getContext('2d');
+  const ctx    = document.getElementById('chartDate').getContext('2d');
   const gradient = ctx.createLinearGradient(0, 0, 0, 220);
-  gradient.addColorStop(0,   'rgba(0,229,160,0.3)');
-  gradient.addColorStop(1,   'rgba(0,229,160,0)');
+  gradient.addColorStop(0, 'rgba(0,229,160,0.3)');
+  gradient.addColorStop(1, 'rgba(0,229,160,0)');
+
   charts.date = new Chart(ctx, {
     type: 'line',
     data: {
       labels,
       datasets: [{
-        data: values,
-        borderColor: COLORS.accent,
-        backgroundColor: gradient,
+        data:                values,
+        borderColor:         COLORS.accent,
+        backgroundColor:     gradient,
         borderWidth: 2.5,
         pointBackgroundColor: COLORS.accent,
-        pointRadius: sorted.length > 30 ? 0 : 4,
-        pointHoverRadius: 6,
+        pointRadius:         sorted.length > 30 ? 0 : 4,
+        pointHoverRadius:    6,
         tension: 0.4,
         fill: true,
       }]
@@ -1150,16 +1316,16 @@ function renderDateChart() {
         ...CHART_DEFAULTS.plugins,
         tooltip: {
           ...CHART_DEFAULTS.plugins.tooltip,
-          callbacks: { label: ctx => ` ${ctx.parsed.y} visitas` }
+          callbacks: { label: ctx => ` ${ctx.parsed.y} encuestas` }
         }
       }
     }
   });
 }
 
-// ── PDV Ranking ─────────────────────────────────────────────
+/* Ranking de PDV (barras horizontales de texto) */
 function renderRanking() {
-  const data = countBy(filtered, 'pdv').slice(0, 15);
+  const data      = countBy(filtered, 'pdv').slice(0, 15);
   const container = document.getElementById('rankingPdv');
   if (!data.length) {
     container.innerHTML = '<div class="empty"><div class="empty-icon">🏪</div><div>Sin datos</div></div>';
@@ -1171,7 +1337,7 @@ function renderRanking() {
       <span class="rank-num">${i + 1}</span>
       <span class="rank-label" title="${d[0]}">${d[0]}</span>
       <div class="rank-bar-wrap">
-        <div class="rank-bar" style="width:${Math.round((d[1]/max)*100)}%"></div>
+        <div class="rank-bar" style="width:${Math.round((d[1] / max) * 100)}%"></div>
       </div>
       <span class="rank-val">${d[1]}</span>
     </div>
@@ -1179,66 +1345,65 @@ function renderRanking() {
 }
 
 /* ════════════════════════════════════════════════════════════
-   TABLE
+   TABLA DE DETALLE con paginación y búsqueda
 ════════════════════════════════════════════════════════════ */
 function renderTable() {
-  const search = document.getElementById('tableSearch').value.toLowerCase().trim();
+  const search    = document.getElementById('tableSearch').value.toLowerCase().trim();
   const tableData = search
     ? filtered.filter(r =>
-        r.fecha.toLowerCase().includes(search)      ||
-        r.supervisor.toLowerCase().includes(search) ||
-        r.pdv.toLowerCase().includes(search)        ||
-        r.formulario.toLowerCase().includes(search)
+        r.dateTime.toLowerCase().includes(search)    ||
+        r.empleado.toLowerCase().includes(search)    ||
+        r.pdv.toLowerCase().includes(search)         ||
+        r.formulario.toLowerCase().includes(search)  ||
+        r.sourceFile.toLowerCase().includes(search)
       )
     : filtered;
 
   const totalPages = Math.max(1, Math.ceil(tableData.length / PAGE_SIZE));
   if (currentPage > totalPages) currentPage = 1;
 
-  const slice = tableData.slice((currentPage-1)*PAGE_SIZE, currentPage*PAGE_SIZE);
+  const slice = tableData.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
   const tbody = document.getElementById('tableBody');
   const empty = document.getElementById('tableEmpty');
 
   if (!slice.length) {
-    tbody.innerHTML = '';
+    tbody.innerHTML    = '';
     empty.style.display = 'block';
   } else {
     empty.style.display = 'none';
-    const offset = (currentPage - 1) * PAGE_SIZE;
-    tbody.innerHTML = slice.map((r, i) => `
+    const offset        = (currentPage - 1) * PAGE_SIZE;
+    tbody.innerHTML     = slice.map((r, i) => `
       <tr>
         <td style="color:var(--text3);font-family:var(--mono);font-size:11px">${offset + i + 1}</td>
-        <td style="font-family:var(--mono);font-size:12px">${r.dateDisplay || r.fecha}</td>
-        <td>${r.supervisor}</td>
+        <td style="font-family:var(--mono);font-size:12px">${r.dateTime || r.dateDisplay || '—'}</td>
+        <td>${r.empleado}</td>
         <td>${r.pdv}</td>
-        <td><span class="badge">${r.formulario}</span></td>
+        <td><span class="badge">${truncate(r.formulario, 30)}</span></td>
+        <td style="color:var(--text3);font-size:11px">${r.sourceFile}</td>
       </tr>
     `).join('');
   }
 
-  // Pagination info
+  // Info de paginación
   document.getElementById('paginationInfo').textContent =
-    `Mostrando ${slice.length ? (currentPage-1)*PAGE_SIZE+1 : 0}–${Math.min(currentPage*PAGE_SIZE, tableData.length)} de ${tableData.length}`;
+    `Mostrando ${slice.length ? (currentPage - 1) * PAGE_SIZE + 1 : 0}–${Math.min(currentPage * PAGE_SIZE, tableData.length)} de ${tableData.length}`;
 
-  // Pagination buttons
+  // Botones de página
   const btns = document.getElementById('paginationBtns');
   btns.innerHTML = '';
   const addBtn = (label, page, disabled, active) => {
-    const b = document.createElement('button');
-    b.className = 'pg-btn' + (active ? ' active' : '');
+    const b       = document.createElement('button');
+    b.className   = 'pg-btn' + (active ? ' active' : '');
     b.textContent = label;
-    b.disabled = disabled;
-    b.onclick = () => { currentPage = page; renderTable(); };
+    b.disabled    = disabled;
+    b.onclick     = () => { currentPage = page; renderTable(); };
     btns.appendChild(b);
   };
   addBtn('«', 1, currentPage === 1, false);
   addBtn('‹', currentPage - 1, currentPage === 1, false);
-
-  // Page numbers
-  const range = pageRange(currentPage, totalPages);
-  range.forEach(p => {
+  pageRange(currentPage, totalPages).forEach(p => {
     if (p === '...') {
-      const el = document.createElement('span');
+      const el       = document.createElement('span');
       el.textContent = '…';
       el.style.cssText = 'padding:5px 8px;color:var(--text3);font-size:12px';
       btns.appendChild(el);
@@ -1246,48 +1411,53 @@ function renderTable() {
       addBtn(p, p, false, p === currentPage);
     }
   });
-
   addBtn('›', currentPage + 1, currentPage === totalPages, false);
   addBtn('»', totalPages, currentPage === totalPages, false);
 }
 
 function pageRange(current, total) {
-  if (total <= 7) return Array.from({length: total}, (_, i) => i + 1);
-  if (current <= 4) return [1,2,3,4,5,'...',total];
-  if (current >= total - 3) return [1,'...',total-4,total-3,total-2,total-1,total];
-  return [1,'...',current-1,current,current+1,'...',total];
+  if (total <= 7)           return Array.from({ length: total }, (_, i) => i + 1);
+  if (current <= 4)         return [1, 2, 3, 4, 5, '...', total];
+  if (current >= total - 3) return [1, '...', total - 4, total - 3, total - 2, total - 1, total];
+  return [1, '...', current - 1, current, current + 1, '...', total];
 }
 
 /* ════════════════════════════════════════════════════════════
-   UI HELPERS
+   HELPERS DE UI
 ════════════════════════════════════════════════════════════ */
-function showLoader(show) {
+function showLoader(show, text = '') {
   document.getElementById('loader').classList.toggle('hidden', !show);
+  if (text) setLoaderText(text);
 }
-
+function setLoaderText(text) {
+  document.getElementById('loaderText').textContent = text;
+}
 function showAlert(msg) {
-  const box = document.getElementById('alertBox');
   document.getElementById('alertMsg').textContent = msg;
-  box.classList.add('show');
+  document.getElementById('alertBox').classList.add('show');
 }
-
 function hideAlert() {
   document.getElementById('alertBox').classList.remove('show');
 }
-
 function updateLastUpdate() {
   const now = new Date();
   document.getElementById('lastUpdate').textContent =
-    'Actualizado: ' + now.toLocaleTimeString('es-PY', {hour:'2-digit', minute:'2-digit'});
+    `Actualizado: ${now.toLocaleTimeString('es-PY', { hour: '2-digit', minute: '2-digit' })} · ${allData.length} registros`;
 }
-
-function onSourceModeChange() {
-  const mode = document.getElementById('sourceMode').value;
-  document.getElementById('sourceUrl').style.display = mode === 'script' ? 'block' : 'none';
+function markFileStatus(index, status, text) {
+  const item = document.getElementById(`fileItem_${index}`);
+  if (!item) return;
+  item.className = `file-item ${status}`;
+  item.querySelector('.file-meta').className = `file-meta ${status}`;
+  item.querySelector('.file-meta').textContent = text;
 }
-
+function formatFileSize(bytes) {
+  if (bytes < 1024)       return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
 function truncate(str, n) {
-  return str.length > n ? str.slice(0, n) + '…' : str;
+  return str && str.length > n ? str.slice(0, n) + '…' : str;
 }
 </script>
 </body>
