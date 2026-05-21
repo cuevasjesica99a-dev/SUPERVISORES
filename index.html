@@ -646,12 +646,15 @@
     overflow-y: auto;
   }
   .enc-row {
-    display: flex; align-items: center; gap: 14px;
     background: var(--surface2);
     border: 1px solid var(--border2);
     border-radius: 10px;
     padding: 12px 16px;
     transition: border-color 0.2s;
+    flex-direction: column;
+    align-items: stretch;
+    cursor: default;
+    gap: 0;
   }
   .enc-row.done   { border-left: 3px solid var(--accent);  }
   .enc-row.pending { border-left: 3px solid var(--danger);  }
@@ -722,6 +725,68 @@
       border-bottom: 1px solid var(--border);
       max-height: 260px;
     }
+  }
+
+  /* ─── PDV EXPANDABLE DENTRO DE ENC-ROW ─────────────────── */
+  .enc-row {
+    flex-direction: column;
+    align-items: stretch;
+    cursor: default;
+    gap: 0;
+  }
+  .enc-row-main {
+    display: flex; align-items: center; gap: 14px;
+    cursor: pointer;
+    user-select: none;
+  }
+  .enc-row.done   .enc-row-main:hover { opacity: 0.85; }
+  .enc-toggle {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text3);
+    flex-shrink: 0;
+    width: 18px;
+    text-align: center;
+    transition: transform 0.2s;
+  }
+  .enc-row.expanded .enc-toggle { transform: rotate(90deg); }
+
+  /* Lista de PDVs expandida */
+  .enc-pdv-list {
+    display: none;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid var(--border);
+  }
+  .enc-row.expanded .enc-pdv-list { display: flex; }
+  .enc-pdv-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 7px 10px;
+    background: rgba(0,0,0,0.2);
+    border-radius: 7px;
+    border: 1px solid var(--border);
+  }
+  .enc-pdv-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--accent);
+    flex-shrink: 0;
+  }
+  .enc-pdv-name {
+    flex: 1;
+    font-size: 12px;
+    color: var(--text2);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .enc-pdv-count {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text3);
+    flex-shrink: 0;
   }
 
   /* ─── RESPONSIVE ────────────────────────────────────────── */
@@ -1786,18 +1851,28 @@ function selectSupervisor(name) {
   renderSupDetail(name);
 }
 
-/* Renderiza el panel derecho con el estado de encuestas del supervisor */
+/* Renderiza el panel derecho con el estado de encuestas del supervisor.
+   Las encuestas COMPLETADAS son clickeables para expandir la lista de PDVs. */
 function renderSupDetail(name) {
   const supData = filtered.filter(r => r.empleado === name);
   const detail  = document.getElementById('supDetail');
 
-  // Para cada encuesta requerida, verificar si hay al menos 1 registro
+  // Para cada encuesta requerida, calcular matches y PDVs únicos
   const rows = ENCUESTAS_REQUERIDAS.map(enc => {
     const matches = supData.filter(r =>
       normalizeEncName(r.formulario) === normalizeEncName(enc)
     );
     const done = matches.length > 0;
-    return { enc, done, count: matches.length };
+
+    // Contar visitas por PDV para esta encuesta
+    const pdvCounts = {};
+    matches.forEach(r => {
+      const p = r.pdv || '(sin PDV)';
+      pdvCounts[p] = (pdvCounts[p] || 0) + 1;
+    });
+    const pdvList = Object.entries(pdvCounts).sort((a, b) => b[1] - a[1]);
+
+    return { enc, done, count: matches.length, pdvList };
   });
 
   const doneCount    = rows.filter(r => r.done).length;
@@ -1808,7 +1883,10 @@ function renderSupDetail(name) {
     <div class="sup-detail-header">
       <div>
         <div class="sup-detail-name">${name}</div>
-        <div class="sup-detail-meta">${supData.length} encuesta${supData.length !== 1 ? 's' : ''} cargada${supData.length !== 1 ? 's' : ''} · ${pct}% completado</div>
+        <div class="sup-detail-meta">
+          ${supData.length} encuesta${supData.length !== 1 ? 's' : ''} cargada${supData.length !== 1 ? 's' : ''}
+          · ${pct}% completado
+        </div>
       </div>
       <div class="sup-pills">
         <span class="sup-pill done">✓ ${doneCount} completada${doneCount !== 1 ? 's' : ''}</span>
@@ -1816,24 +1894,49 @@ function renderSupDetail(name) {
       </div>
     </div>
     <div class="sup-encuestas-list">
-      ${rows.map(r => `
-        <div class="enc-row ${r.done ? 'done' : 'pending'}">
-          <span class="enc-status-icon">${r.done ? '✅' : '🔴'}</span>
-          <div class="enc-info">
-            <div class="enc-name">${r.enc}</div>
-            <div class="enc-sub">${r.done
-              ? `${r.count} registro${r.count !== 1 ? 's' : ''} encontrado${r.count !== 1 ? 's' : ''}`
-              : 'Sin registros en el período filtrado'
-            }</div>
+      ${rows.map((r, i) => `
+        <div class="enc-row ${r.done ? 'done' : 'pending'}" id="encRow_${i}">
+
+          <!-- Fila principal — clickeable solo si está completado -->
+          <div class="enc-row-main" ${r.done ? `onclick="toggleEncPdv(${i})"` : ''}>
+            <span class="enc-status-icon">${r.done ? '✅' : '🔴'}</span>
+            <div class="enc-info">
+              <div class="enc-name">${r.enc}</div>
+              <div class="enc-sub">${r.done
+                ? `${r.count} registro${r.count !== 1 ? 's' : ''} · ${r.pdvList.length} PDV${r.pdvList.length !== 1 ? 's' : ''} — hacé clic para ver`
+                : 'Sin registros en el período filtrado'
+              }</div>
+            </div>
+            <span class="enc-count">${r.done ? `${r.count}×` : '—'}</span>
+            <span class="enc-badge ${r.done ? 'done' : 'pending'}">
+              ${r.done ? 'COMPLETADO' : 'PENDIENTE'}
+            </span>
+            ${r.done ? `<span class="enc-toggle">▶</span>` : ''}
           </div>
-          <span class="enc-count">${r.done ? `${r.count}×` : '—'}</span>
-          <span class="enc-badge ${r.done ? 'done' : 'pending'}">
-            ${r.done ? 'COMPLETADO' : 'PENDIENTE'}
-          </span>
+
+          <!-- Lista expandible de PDVs (solo visible si está completado y expandido) -->
+          ${r.done ? `
+            <div class="enc-pdv-list">
+              ${r.pdvList.map(([pdv, cnt]) => `
+                <div class="enc-pdv-item">
+                  <div class="enc-pdv-dot"></div>
+                  <span class="enc-pdv-name" title="${pdv}">${pdv}</span>
+                  <span class="enc-pdv-count">${cnt} vez${cnt !== 1 ? 'ces' : ''}</span>
+                </div>
+              `).join('')}
+            </div>
+          ` : ''}
+
         </div>
       `).join('')}
     </div>
   `;
+}
+
+/* Abre/cierra la lista de PDVs de una encuesta */
+function toggleEncPdv(index) {
+  const row = document.getElementById(`encRow_${index}`);
+  if (row) row.classList.toggle('expanded');
 }
 
 /* Normaliza nombres de encuestas para comparación flexible:
