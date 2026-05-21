@@ -507,6 +507,223 @@
   #dashboardContent { display: none; }
   #dashboardContent.visible { display: block; }
 
+  /* ─── SUPERVISOR COMPLIANCE PANEL ──────────────────────── */
+  .compliance-grid {
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    gap: 0;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    margin-bottom: 24px;
+    min-height: 360px;
+  }
+
+  /* Lista lateral de supervisores */
+  .sup-sidebar {
+    border-right: 1px solid var(--border);
+    display: flex; flex-direction: column;
+  }
+  .sup-sidebar-header {
+    padding: 18px 20px 14px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .sup-sidebar-title {
+    font-family: var(--display);
+    font-weight: 700;
+    font-size: 14px;
+    margin-bottom: 2px;
+  }
+  .sup-sidebar-sub {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text3);
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+  }
+  .sup-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 10px 0;
+  }
+  .sup-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 20px;
+    cursor: pointer;
+    transition: background 0.15s;
+    border-left: 3px solid transparent;
+  }
+  .sup-item:hover { background: var(--surface2); }
+  .sup-item.active {
+    background: rgba(0,229,160,0.06);
+    border-left-color: var(--accent);
+  }
+  .sup-rank-num {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text3);
+    width: 18px;
+    flex-shrink: 0;
+    text-align: right;
+  }
+  .sup-name {
+    flex: 1;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .sup-count-badge {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--accent2);
+    flex-shrink: 0;
+  }
+  .sup-progress-mini {
+    width: 50px; height: 4px;
+    background: var(--border);
+    border-radius: 99px;
+    overflow: hidden;
+    flex-shrink: 0;
+  }
+  .sup-progress-mini-fill {
+    height: 100%;
+    background: var(--accent2);
+    border-radius: 99px;
+    transition: width 0.5s ease;
+  }
+
+  /* Panel derecho: detalle de encuestas del supervisor */
+  .sup-detail {
+    display: flex; flex-direction: column;
+  }
+  .sup-detail-header {
+    padding: 18px 24px 14px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    flex-wrap: wrap; gap: 8px; flex-shrink: 0;
+  }
+  .sup-detail-name {
+    font-family: var(--display);
+    font-weight: 700;
+    font-size: 15px;
+    color: var(--text);
+  }
+  .sup-detail-meta {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text3);
+  }
+  .sup-pills {
+    display: flex; gap: 8px; flex-wrap: wrap;
+  }
+  .sup-pill {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 3px 10px;
+    border-radius: 99px;
+    font-family: var(--mono);
+    font-size: 11px;
+    border: 1px solid;
+  }
+  .sup-pill.done {
+    background: rgba(0,229,160,0.1);
+    border-color: rgba(0,229,160,0.3);
+    color: var(--accent);
+  }
+  .sup-pill.pending {
+    background: rgba(255,77,109,0.1);
+    border-color: rgba(255,77,109,0.3);
+    color: var(--danger);
+  }
+  .sup-encuestas-list {
+    flex: 1;
+    padding: 16px 24px;
+    display: flex; flex-direction: column; gap: 10px;
+    overflow-y: auto;
+  }
+  .enc-row {
+    display: flex; align-items: center; gap: 14px;
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: 10px;
+    padding: 12px 16px;
+    transition: border-color 0.2s;
+  }
+  .enc-row.done   { border-left: 3px solid var(--accent);  }
+  .enc-row.pending { border-left: 3px solid var(--danger);  }
+  .enc-status-icon { font-size: 18px; flex-shrink: 0; }
+  .enc-info { flex: 1; min-width: 0; }
+  .enc-name {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .enc-sub {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text3);
+    margin-top: 2px;
+  }
+  .enc-badge {
+    flex-shrink: 0;
+    padding: 4px 12px;
+    border-radius: 99px;
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 500;
+    border: 1px solid;
+  }
+  .enc-badge.done {
+    background: rgba(0,229,160,0.12);
+    border-color: rgba(0,229,160,0.35);
+    color: var(--accent);
+  }
+  .enc-badge.pending {
+    background: rgba(255,77,109,0.12);
+    border-color: rgba(255,77,109,0.35);
+    color: var(--danger);
+  }
+  .enc-count {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text3);
+    flex-shrink: 0;
+    min-width: 60px;
+    text-align: right;
+  }
+
+  /* Estado vacío del panel de detalle */
+  .sup-detail-empty {
+    flex: 1;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    color: var(--text3);
+    font-family: var(--mono);
+    font-size: 13px;
+    gap: 12px;
+    padding: 40px;
+  }
+  .sup-detail-empty-icon { font-size: 40px; opacity: 0.5; }
+
+  /* Responsive */
+  @media (max-width: 900px) {
+    .compliance-grid {
+      grid-template-columns: 1fr;
+    }
+    .sup-sidebar {
+      border-right: none;
+      border-bottom: 1px solid var(--border);
+      max-height: 260px;
+    }
+  }
+
   /* ─── RESPONSIVE ────────────────────────────────────────── */
   @media (max-width: 900px) {
     main { padding: 20px 16px; }
@@ -725,6 +942,28 @@
           <div class="ranking-list" id="rankingPdv"></div>
         </div>
 
+      </div>
+
+      <!-- PANEL DE CUMPLIMIENTO POR SUPERVISOR -->
+      <div class="compliance-grid animate">
+        <div class="sup-sidebar">
+          <div class="sup-sidebar-header">
+            <div class="sup-sidebar-title">Supervisores</div>
+            <div class="sup-sidebar-sub">Seleccioná para ver detalle</div>
+          </div>
+          <div class="sup-list" id="supList">
+            <div class="empty" style="padding:24px">
+              <div class="empty-icon" style="font-size:28px">👤</div>
+              <div>Sin datos</div>
+            </div>
+          </div>
+        </div>
+        <div class="sup-detail" id="supDetail">
+          <div class="sup-detail-empty">
+            <div class="sup-detail-empty-icon">👈</div>
+            <div>Seleccioná un supervisor para ver sus encuestas</div>
+          </div>
+        </div>
       </div>
 
       <!-- DATA TABLE -->
@@ -1211,6 +1450,7 @@ function renderCharts() {
   renderFormChart();
   renderDateChart();
   renderRanking();
+  renderCompliancePanel();
 }
 
 /* Gráfico de barras: encuestas por Supervisor (Empleado) */
@@ -1458,6 +1698,158 @@ function formatFileSize(bytes) {
 }
 function truncate(str, n) {
   return str && str.length > n ? str.slice(0, n) + '…' : str;
+}
+
+/* ════════════════════════════════════════════════════════════
+   PANEL DE CUMPLIMIENTO POR SUPERVISOR
+   Lista fija de encuestas requeridas. Para cada supervisor,
+   se verifica si tiene al menos 1 registro con ese formulario
+   en el dataset filtrado actual → COMPLETADO / PENDIENTE.
+════════════════════════════════════════════════════════════ */
+
+// Encuestas requeridas (nombres exactos tal como aparecen en col B del Excel)
+const ENCUESTAS_REQUERIDAS = [
+  'ARCOR - SPV',
+  'FRIGO SEMANAL - ENVASADOS - ÚLTIMOS PRECIOS',
+  'SANTA MARGARITA - SPV',
+  'UNILEVER - SPV',
+  'FRUTIKA - SPV',
+];
+
+let selectedSupervisor = null; // Nombre del supervisor actualmente seleccionado
+
+/* Renderiza la sidebar de supervisores y resetea el detalle */
+function renderCompliancePanel() {
+  const supervisors = [...new Set(filtered.map(r => r.empleado))].sort();
+  const list        = document.getElementById('supList');
+
+  if (!supervisors.length) {
+    list.innerHTML = `
+      <div class="empty" style="padding:24px">
+        <div class="empty-icon" style="font-size:28px">👤</div>
+        <div>Sin datos</div>
+      </div>`;
+    document.getElementById('supDetail').innerHTML = `
+      <div class="sup-detail-empty">
+        <div class="sup-detail-empty-icon">👈</div>
+        <div>Seleccioná un supervisor para ver sus encuestas</div>
+      </div>`;
+    selectedSupervisor = null;
+    return;
+  }
+
+  // Calcular para cada supervisor cuántas encuestas completó
+  const supStats = supervisors.map(sup => {
+    const supData   = filtered.filter(r => r.empleado === sup);
+    const completed = ENCUESTAS_REQUERIDAS.filter(enc =>
+      supData.some(r => normalizeEncName(r.formulario) === normalizeEncName(enc))
+    ).length;
+    return { sup, count: supData.length, completed, total: ENCUESTAS_REQUERIDAS.length };
+  });
+
+  const maxCount = Math.max(...supStats.map(s => s.count), 1);
+
+  list.innerHTML = supStats.map((s, i) => `
+    <div
+      class="sup-item ${selectedSupervisor === s.sup ? 'active' : ''}"
+      onclick="selectSupervisor('${escapeSup(s.sup)}')"
+      id="supItem_${i}"
+    >
+      <span class="sup-rank-num">${i + 1}</span>
+      <span class="sup-name" title="${s.sup}">${s.sup}</span>
+      <div class="sup-progress-mini">
+        <div class="sup-progress-mini-fill" style="width:${Math.round((s.count/maxCount)*100)}%"></div>
+      </div>
+      <span class="sup-count-badge">${s.count}</span>
+    </div>
+  `).join('');
+
+  // Si había uno seleccionado antes, mantener el detalle actualizado
+  if (selectedSupervisor && supervisors.includes(selectedSupervisor)) {
+    renderSupDetail(selectedSupervisor);
+  } else {
+    // Auto-seleccionar el primero
+    if (supervisors.length) selectSupervisor(supervisors[0]);
+  }
+}
+
+/* Selecciona un supervisor y muestra su detalle */
+function selectSupervisor(name) {
+  selectedSupervisor = name;
+
+  // Actualizar clase active en sidebar
+  document.querySelectorAll('.sup-item').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.sup-item').forEach(el => {
+    if (el.querySelector('.sup-name')?.title === name) el.classList.add('active');
+  });
+
+  renderSupDetail(name);
+}
+
+/* Renderiza el panel derecho con el estado de encuestas del supervisor */
+function renderSupDetail(name) {
+  const supData = filtered.filter(r => r.empleado === name);
+  const detail  = document.getElementById('supDetail');
+
+  // Para cada encuesta requerida, verificar si hay al menos 1 registro
+  const rows = ENCUESTAS_REQUERIDAS.map(enc => {
+    const matches = supData.filter(r =>
+      normalizeEncName(r.formulario) === normalizeEncName(enc)
+    );
+    const done = matches.length > 0;
+    return { enc, done, count: matches.length };
+  });
+
+  const doneCount    = rows.filter(r => r.done).length;
+  const pendingCount = rows.filter(r => !r.done).length;
+  const pct          = Math.round((doneCount / ENCUESTAS_REQUERIDAS.length) * 100);
+
+  detail.innerHTML = `
+    <div class="sup-detail-header">
+      <div>
+        <div class="sup-detail-name">${name}</div>
+        <div class="sup-detail-meta">${supData.length} encuesta${supData.length !== 1 ? 's' : ''} cargada${supData.length !== 1 ? 's' : ''} · ${pct}% completado</div>
+      </div>
+      <div class="sup-pills">
+        <span class="sup-pill done">✓ ${doneCount} completada${doneCount !== 1 ? 's' : ''}</span>
+        <span class="sup-pill pending">⏳ ${pendingCount} pendiente${pendingCount !== 1 ? 's' : ''}</span>
+      </div>
+    </div>
+    <div class="sup-encuestas-list">
+      ${rows.map(r => `
+        <div class="enc-row ${r.done ? 'done' : 'pending'}">
+          <span class="enc-status-icon">${r.done ? '✅' : '🔴'}</span>
+          <div class="enc-info">
+            <div class="enc-name">${r.enc}</div>
+            <div class="enc-sub">${r.done
+              ? `${r.count} registro${r.count !== 1 ? 's' : ''} encontrado${r.count !== 1 ? 's' : ''}`
+              : 'Sin registros en el período filtrado'
+            }</div>
+          </div>
+          <span class="enc-count">${r.done ? `${r.count}×` : '—'}</span>
+          <span class="enc-badge ${r.done ? 'done' : 'pending'}">
+            ${r.done ? 'COMPLETADO' : 'PENDIENTE'}
+          </span>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
+/* Normaliza nombres de encuestas para comparación flexible:
+   quita acentos, mayúsculas, espacios extra */
+function normalizeEncName(str) {
+  return str
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/* Escapa comillas simples para uso en atributo onclick */
+function escapeSup(name) {
+  return name.replace(/'/g, "\\'");
 }
 </script>
 </body>
