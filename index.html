@@ -2246,165 +2246,184 @@ async function exportPPT() {
       const pct          = Math.round((doneCount / ENCUESTAS_REQUERIDAS.length) * 100);
       const pctColor     = pct >= 80 ? C.green : pct >= 40 ? C.yellow : C.red;
 
-      const sS = addSlide();
+      // ── Helper: adds header to a supervisor slide ──────────
+      function addSupHeader(slide, isFirst) {
+        slide.addShape(pres.shapes.RECTANGLE, {
+          x: 0, y: 0, w: 0.12, h: H,
+          fill: { color: C.red }, line: { color: C.red, width: 0 },
+        });
+        slide.addText('DETALLE — SUPERVISOR', {
+          x: 0.25, y: 0.12, w: 9, h: 0.22,
+          fontSize: 9, color: C.gray, fontFace: 'Calibri', charSpacing: 3, margin: 0,
+        });
+        slide.addText(supName.toUpperCase(), {
+          x: 0.25, y: 0.3, w: 7, h: 0.45,
+          fontSize: 22, bold: true, color: C.white, fontFace: 'Arial Black',
+          charSpacing: 2, margin: 0,
+        });
+        if (isFirst) {
+          const pillY = 0.25;
+          slide.addShape(pres.shapes.RECTANGLE, {
+            x: 7.4, y: pillY, w: 1.1, h: 0.55,
+            fill: { color: C.surface }, line: { color: C.gray2, width: 1 },
+          });
+          slide.addText(`${supData.length}\nENCUESTAS`, {
+            x: 7.4, y: pillY, w: 1.1, h: 0.55,
+            fontSize: 9, color: C.white, align: 'center', valign: 'middle',
+            fontFace: 'Calibri', bold: true, margin: 0,
+          });
+          slide.addShape(pres.shapes.RECTANGLE, {
+            x: 8.6, y: pillY, w: 1.15, h: 0.55,
+            fill: { color: C.surface }, line: { color: C.blue, width: 1 },
+          });
+          slide.addText(`${pdvCount}\nPDVs`, {
+            x: 8.6, y: pillY, w: 1.15, h: 0.55,
+            fontSize: 9, color: C.blue, align: 'center', valign: 'middle',
+            fontFace: 'Calibri', bold: true, margin: 0,
+          });
+          slide.addShape(pres.shapes.RECTANGLE, {
+            x: 7.4, y: pillY + 0.63, w: 2.35, h: 0.3,
+            fill: { color: pctColor + '33' }, line: { color: pctColor, width: 1 },
+          });
+          slide.addText(`${doneCount}/${ENCUESTAS_REQUERIDAS.length} formularios · ${pct}% completado`, {
+            x: 7.4, y: pillY + 0.63, w: 2.35, h: 0.3,
+            fontSize: 8, color: pctColor, align: 'center', valign: 'middle',
+            fontFace: 'Calibri', bold: true, margin: 0,
+          });
+        } else {
+          // "continued" badge for overflow slides
+          slide.addText('(continuación)', {
+            x: 7.4, y: 0.35, w: 2.35, h: 0.25,
+            fontSize: 8, color: C.gray2, align: 'right',
+            fontFace: 'Calibri', margin: 0,
+          });
+        }
+        slide.addShape(pres.shapes.LINE, {
+          x: 0.25, y: 1.0, w: 9.5, h: 0,
+          line: { color: C.gray2, width: 0.75 },
+        });
+      }
 
-      // Red left sidebar
-      sS.addShape(pres.shapes.RECTANGLE, {
-        x: 0, y: 0, w: 0.12, h: H,
-        fill: { color: C.red }, line: { color: C.red, width: 0 },
-      });
+      // ── Layout constants ───────────────────────────────────
+      const colW    = 4.6;
+      const colGap  = 0.2;
+      const startY  = 1.12;
+      const maxY    = H - 0.3;   // bottom margin
+      const rowH    = 0.42;      // header row height
+      const pdvRowH = 0.2;       // height per PDV row
+      const pdvPad  = 0.04;      // small top pad inside pdv rows
 
-      // Supervisor name header
-      sS.addText('DETALLE — SUPERVISOR', {
-        x: 0.25, y: 0.12, w: 9, h: 0.22,
-        fontSize: 9, color: C.gray, fontFace: 'Calibri', charSpacing: 3, margin: 0,
-      });
-      sS.addText(supName.toUpperCase(), {
-        x: 0.25, y: 0.3, w: 7, h: 0.45,
-        fontSize: 22, bold: true, color: C.white, fontFace: 'Arial Black',
-        charSpacing: 2, margin: 0,
-      });
+      // ── Render all encuestas, auto-paginating ──────────────
+      let curSlide  = addSlide();
+      let isFirst   = true;
+      addSupHeader(curSlide, true);
 
-      // Stats pills top-right
-      const pillY = 0.25;
-      // Encuestas box
-      sS.addShape(pres.shapes.RECTANGLE, {
-        x: 7.4, y: pillY, w: 1.1, h: 0.55,
-        fill: { color: C.surface }, line: { color: C.gray2, width: 1 },
-      });
-      sS.addText(`${supData.length}\nENCUESTAS`, {
-        x: 7.4, y: pillY, w: 1.1, h: 0.55,
-        fontSize: 9, color: C.white, align: 'center', valign: 'middle',
-        fontFace: 'Calibri', bold: true, margin: 0,
-      });
-      // PDVs box
-      sS.addShape(pres.shapes.RECTANGLE, {
-        x: 8.6, y: pillY, w: 1.15, h: 0.55,
-        fill: { color: C.surface }, line: { color: C.blue, width: 1 },
-      });
-      sS.addText(`${pdvCount}\nPDVs`, {
-        x: 8.6, y: pillY, w: 1.15, h: 0.55,
-        fontSize: 9, color: C.blue, align: 'center', valign: 'middle',
-        fontFace: 'Calibri', bold: true, margin: 0,
-      });
+      let col       = 0;              // 0 = left col, 1 = right col
+      let colY      = [startY, startY]; // current Y cursor per column
 
-      // % cumplimiento box
-      sS.addShape(pres.shapes.RECTANGLE, {
-        x: 7.4, y: pillY + 0.63, w: 2.35, h: 0.3,
-        fill: { color: pctColor + '33' }, line: { color: pctColor, width: 1 },
-      });
-      sS.addText(`${doneCount}/${ENCUESTAS_REQUERIDAS.length} formularios · ${pct}% completado`, {
-        x: 7.4, y: pillY + 0.63, w: 2.35, h: 0.3,
-        fontSize: 8, color: pctColor, align: 'center', valign: 'middle',
-        fontFace: 'Calibri', bold: true, margin: 0,
-      });
+      encStatus.forEach(enc => {
+        // Calculate full card height: header + sub-info + all PDV rows
+        const pdvRows  = enc.done ? enc.pdvList.length : 0;
+        const cardH    = rowH + pdvRows * pdvRowH;
 
-      // Divider
-      sS.addShape(pres.shapes.LINE, {
-        x: 0.25, y: 1.0, w: 9.5, h: 0,
-        line: { color: C.gray2, width: 0.75 },
-      });
+        // Check if this card overflows the current column
+        // If both columns are full → new slide
+        function tryColumn(c) {
+          return colY[c] + cardH <= maxY;
+        }
 
-      // Layout: 2 columns of encuestas
-      const colW   = 4.6;
-      const startY = 1.12;
-      const rowH   = 0.42;
-      const maxPdvPerCard = 3;
+        // Try current column first, then other column, then new slide
+        if (!tryColumn(col)) {
+          const other = 1 - col;
+          if (tryColumn(other)) {
+            col = other;
+          } else {
+            // Both full → start a new slide
+            curSlide = addSlide();
+            addSupHeader(curSlide, false);
+            isFirst = false;
+            col = 0;
+            colY = [startY, startY];
+          }
+        }
 
-      let col = 0, rowInCol = [0, 0];
+        const cx = 0.25 + col * (colW + colGap);
+        const cy = colY[col];
 
-      encStatus.forEach((enc, idx) => {
-        const cx = 0.25 + col * (colW + 0.2);
-        let cy   = startY + rowInCol[col] * rowH;
-
-        if (cy + rowH > H - 0.3) { col = 1; cy = startY + rowInCol[1] * rowH; }
-
-        const cardH = enc.done
-          ? rowH + Math.min(enc.pdvList.length, maxPdvPerCard) * 0.22
-          : rowH;
-
-        // Card bg
-        sS.addShape(pres.shapes.RECTANGLE, {
+        // ── Card background ──
+        curSlide.addShape(pres.shapes.RECTANGLE, {
           x: cx, y: cy, w: colW, h: cardH,
           fill: { color: C.surface },
           line: { color: enc.done ? C.greenDk : '3A0A0A', width: 1 },
         });
-        // Status bar left
-        sS.addShape(pres.shapes.RECTANGLE, {
+        // Left accent bar
+        curSlide.addShape(pres.shapes.RECTANGLE, {
           x: cx, y: cy, w: 0.06, h: cardH,
           fill: { color: enc.done ? C.green : C.red },
           line: { color: enc.done ? C.green : C.red, width: 0 },
         });
 
-        // Status icon + name
-        const icon = enc.done ? '✓' : '✗';
-        const icCol = enc.done ? C.green : C.red;
-        sS.addText(icon, {
+        // Status icon
+        curSlide.addText(enc.done ? '✓' : '✗', {
           x: cx + 0.1, y: cy + 0.05, w: 0.22, h: 0.25,
-          fontSize: 11, bold: true, color: icCol,
+          fontSize: 11, bold: true, color: enc.done ? C.green : C.red,
           fontFace: 'Calibri', margin: 0,
         });
-        sS.addText(enc.enc, {
+        // Encuesta name
+        curSlide.addText(enc.enc, {
           x: cx + 0.32, y: cy + 0.04, w: colW - 1.2, h: 0.25,
           fontSize: 9.5, bold: true, color: C.white,
           fontFace: 'Calibri', margin: 0,
         });
-
-        // Status badge
-        sS.addShape(pres.shapes.RECTANGLE, {
+        // Badge
+        curSlide.addShape(pres.shapes.RECTANGLE, {
           x: cx + colW - 0.88, y: cy + 0.06, w: 0.85, h: 0.22,
           fill: { color: enc.done ? C.greenDk : '3A0A0A' },
           line: { color: enc.done ? C.green : C.red, width: 1 },
         });
-        sS.addText(enc.done ? 'COMPLETADO' : 'PENDIENTE', {
+        curSlide.addText(enc.done ? 'COMPLETADO' : 'PENDIENTE', {
           x: cx + colW - 0.88, y: cy + 0.06, w: 0.85, h: 0.22,
           fontSize: 6.5, bold: true, color: enc.done ? C.green : C.red,
           fontFace: 'Calibri', align: 'center', valign: 'middle', margin: 0,
         });
-
-        // Sub-info (count + pendiente text)
+        // Sub-info line
         const subText = enc.done
           ? `${enc.count} registro${enc.count !== 1 ? 's' : ''} · ${enc.pdvList.length} PDV${enc.pdvList.length !== 1 ? 's' : ''}`
           : 'Sin registros en el período filtrado';
-        sS.addText(subText, {
+        curSlide.addText(subText, {
           x: cx + 0.32, y: cy + 0.27, w: colW - 0.45, h: 0.15,
           fontSize: 7.5, color: C.gray, fontFace: 'Calibri', margin: 0,
         });
 
-        let pdvY = cy + rowH;
-
-        // PDV list (only for completed)
+        // ── ALL PDV rows (no limit) ──────────────────────────
         if (enc.done) {
-          enc.pdvList.slice(0, maxPdvPerCard).forEach(([pdv, cnt]) => {
-            // Dot
-            sS.addShape(pres.shapes.OVAL, {
-              x: cx + 0.16, y: pdvY + 0.06, w: 0.07, h: 0.07,
+          let pdvY = cy + rowH;
+          enc.pdvList.forEach(([pdv, cnt]) => {
+            // Green dot
+            curSlide.addShape(pres.shapes.OVAL, {
+              x: cx + 0.16, y: pdvY + 0.055, w: 0.065, h: 0.065,
               fill: { color: C.green }, line: { color: C.green, width: 0 },
             });
             // PDV name
-            sS.addText(pdv, {
-              x: cx + 0.28, y: pdvY + 0.02, w: colW - 1.2, h: 0.2,
-              fontSize: 7.5, color: C.gray, fontFace: 'Calibri', margin: 0,
+            curSlide.addText(pdv, {
+              x: cx + 0.28, y: pdvY + pdvPad, w: colW - 1.1, h: pdvRowH - pdvPad,
+              fontSize: 7, color: C.gray, fontFace: 'Calibri', margin: 0,
             });
             // Count
-            sS.addText(`${cnt}×`, {
-              x: cx + colW - 0.5, y: pdvY + 0.02, w: 0.4, h: 0.2,
-              fontSize: 7.5, color: C.gray, fontFace: 'Calibri',
+            curSlide.addText(`${cnt}×`, {
+              x: cx + colW - 0.48, y: pdvY + pdvPad, w: 0.4, h: pdvRowH - pdvPad,
+              fontSize: 7, color: C.gray, fontFace: 'Calibri',
               align: 'right', margin: 0,
             });
-            pdvY += 0.22;
+            pdvY += pdvRowH;
           });
-          // Indicator if there are more PDVs
-          if (enc.pdvList.length > maxPdvPerCard) {
-            sS.addText(`+${enc.pdvList.length - maxPdvPerCard} PDVs más…`, {
-              x: cx + 0.28, y: pdvY + 0.01, w: colW - 0.45, h: 0.18,
-              fontSize: 7, color: C.gray2, fontFace: 'Calibri', margin: 0,
-            });
-          }
         }
 
-        rowInCol[col] += Math.round(cardH / rowH);
-        col = col === 0 ? 1 : 0;
+        // Advance Y cursor for this column
+        colY[col] += cardH + 0.06; // 0.06 gap between cards
+
+        // Alternate columns for next card
+        col = 1 - col;
       });
     }
 
