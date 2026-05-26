@@ -2888,12 +2888,11 @@ function openReporteEjecutivo() {
     f.total = filtered.filter(r => normalizeEncName(r.formulario) === f.key).length;
   });
 
-  // Supervisores y sus datos
-  const supervisorNames = [...new Set(filtered.map(r => r.empleado))].sort();
+  // Supervisores y sus datos — ordenados de mayor a menor volumen
+  const supervisorNames = [...new Set(filtered.map(r => r.empleado))];
   const totalEnc  = filtered.length;
   const totalSups = supervisorNames.length;
   const totalPdvs = new Set(filtered.map(r => r.pdv)).size;
-  const maxEnc    = Math.max(...supervisorNames.map(s => filtered.filter(r => r.empleado === s).length));
 
   const supervisores = supervisorNames.map(name => {
     const supRows = filtered.filter(r => r.empleado === name);
@@ -2914,11 +2913,12 @@ function openReporteEjecutivo() {
     const completadas = formsData.filter(f => forms[f.key].status === 'completado').length;
     const pendientes  = formsData.length - completadas;
     const pct         = Math.round((completadas / formsData.length) * 100);
-    // por: totales por formulario para la grilla
     const por = {};
     formsData.forEach(f => { por[f.key] = forms[f.key].registros; });
     return { name, zona: '', encuestas: supRows.length, pdvs, completadas, pendientes, pct, forms, por };
-  });
+  }).sort((a, b) => b.encuestas - a.encuestas); // ← de mayor a menor volumen
+
+  const maxEnc = supervisores.length ? supervisores[0].encuestas : 1;
 
   // Período del reporte
   const dates   = filtered.map(r => r.dateISO).filter(Boolean).sort();
@@ -2993,17 +2993,16 @@ function openReporteEjecutivo() {
         <div class="rpt-cp-total"><span class="rpt-cp-total-n">${at60_80}</span><span class="rpt-cp-total-l">60–80%</span></div>
         <div class="rpt-cp-total"><span class="rpt-cp-total-n">${atLow}</span><span class="rpt-cp-total-l">≤ 40%</span></div>
         <div class="rpt-cp-spacer"></div>
-        ${formsData.map(f => `
-          <div class="rpt-cp-form-chip" style="--c:${rptFormColor(f.key)}">
-            <span class="rpt-cp-form-dot" style="background:${rptFormColor(f.key)}"></span>
-            <span class="rpt-cp-form-l" style="color:${rptFormInk(f.key)}">${f.nombre.split(' ')[0]}</span>
+        ${formsData.map((f, fi) => `
+          <div class="rpt-cp-form-chip rpt-fi-${fi}">
+            <span class="rpt-cp-form-dot rpt-fi-${fi}-dot"></span>
+            <span class="rpt-cp-form-l rpt-fi-${fi}-ink">${f.nombre.split(' ')[0]}</span>
             <span class="rpt-cp-form-n">${f.total}</span>
           </div>`).join('')}
       </div>
       <div class="rpt-cp-list">
         ${supervisores.map((s, i) => {
           const sc  = rptStatusColor(s.pct);
-          const col = rptFormColor;
           return `<article class="rpt-cp-row rpt-row-${sc}">
             <div class="rpt-cp-rank">${String(i+1).padStart(2,'0')}</div>
             <div class="rpt-cp-bar"></div>
@@ -3012,22 +3011,19 @@ function openReporteEjecutivo() {
               <div class="rpt-cp-zona">${s.zona || '&nbsp;'}</div>
             </div>
             <div class="rpt-cp-volume">
-              <div class="rpt-cp-vol-bar"><div class="rpt-cp-vol-fill" style="width:${Math.round((s.encuestas/maxEnc)*100)}%"></div></div>
+              <div class="rpt-cp-vol-bar"><div class="rpt-cp-vol-fill rpt-vol-${sc}" style="width:${Math.round((s.encuestas/maxEnc)*100)}%"></div></div>
               <div class="rpt-cp-vol-stats">
                 <span class="rpt-cp-vol-n">${s.encuestas}</span>
                 <span class="rpt-cp-vol-l">encuestas · ${s.pdvs} PDVs</span>
               </div>
             </div>
             <div class="rpt-cp-forms">
-              ${formsData.map(f => {
+              ${formsData.map((f, fi) => {
                 const v = s.por[f.key];
                 const empty = !v;
-                const c = rptFormColor(f.key);
-                const ci = rptFormInk(f.key);
-                return `<div class="rpt-cp-form ${empty ? 'rpt-cp-form-empty' : ''}"
-                  style="background:${empty ? '' : `color-mix(in oklab,${c} 12%,white)`};border:1px solid ${empty ? '' : `color-mix(in oklab,${c} 30%,#e3dcc9)`}">
-                  <span class="rpt-cp-form-name" style="color:${empty ? '' : ci}">${f.nombre.split(' ')[0]}</span>
-                  <span class="rpt-cp-form-val"  style="color:${empty ? '' : ci}">${empty ? '—' : v}</span>
+                return `<div class="rpt-cp-form ${empty ? 'rpt-cp-form-empty' : `rpt-fi-${fi}-bg`}">
+                  <span class="rpt-cp-form-name ${empty ? '' : `rpt-fi-${fi}-ink`}">${f.nombre.split(' ')[0]}</span>
+                  <span class="rpt-cp-form-val  ${empty ? '' : `rpt-fi-${fi}-ink`}">${empty ? '—' : v}</span>
                 </div>`;
               }).join('')}
             </div>
