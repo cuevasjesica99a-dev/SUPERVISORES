@@ -11,6 +11,8 @@
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <!-- PptxGenJS para generar presentaciones PowerPoint -->
 <script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.11.0/dist/pptxgen.bundle.js"></script>
+<!-- jsPDF para generar reportes PDF A4 -->
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <style>
   /* ─── DESIGN TOKENS ─────────────────────────────────────── */
   :root {
@@ -512,6 +514,12 @@
     border: none !important;
   }
   .btn-export:hover { filter: brightness(1.2); transform: translateY(-1px); }
+  .btn-pdf {
+    background: linear-gradient(135deg, #1a5fa8 0%, #0d3d70 100%);
+    color: #fff !important;
+    border: none !important;
+  }
+  .btn-pdf:hover { filter: brightness(1.2); transform: translateY(-1px); }
 
   /* ─── DASHBOARD SECTIONS (inicialmente ocultas) ─────────── */
   #dashboardContent { display: none; }
@@ -852,6 +860,9 @@
       </span>
       <button class="btn btn-export" id="btnExportPpt" onclick="exportPPT()" style="display:none">
         📊 Exportar PPT
+      </button>
+      <button class="btn btn-pdf" id="btnExportPdf" onclick="exportPDF()" style="display:none">
+        📄 Exportar PDF
       </button>
       <button class="btn btn-ghost" onclick="clearAll()">🗑 Limpiar todo</button>
     </div>
@@ -1250,6 +1261,7 @@ async function processAllFiles() {
   document.getElementById('dashboardContent').classList.add('visible');
   document.getElementById('statusDot').classList.add('live');
   document.getElementById('btnExportPpt').style.display = 'inline-flex';
+  document.getElementById('btnExportPdf').style.display = 'inline-flex';
 
   // Scroll suave al dashboard
   setTimeout(() => {
@@ -1964,11 +1976,486 @@ function normalizeEncName(str) {
     .trim();
 }
 
-/* Escapa comillas simples para uso en atributo onclick */
-function escapeSup(name) {
-  return name.replace(/'/g, "\\'");
-}
+/* ════════════════════════════════════════════════════════════
+   EXPORTAR PDF — Reporte A4 vertical
+   Secciones:
+     1. Portada
+     2. Resumen general (KPIs + tabla de supervisores)
+     3. Detalle por supervisor: formularios completados/pendientes
+        con todos los PDVs, paginando automáticamente
+════════════════════════════════════════════════════════════ */
+async function exportPDF() {
+  if (!filtered.length) { showAlert('No hay datos para exportar.'); return; }
 
+  const btn = document.getElementById('btnExportPdf');
+  btn.textContent = '⏳ Generando PDF…';
+  btn.disabled = true;
+
+  try {
+    await new Promise(r => setTimeout(r, 40)); // let UI update
+
+    const { jsPDF } = window.jspdf;
+    if (!jsPDF) { showAlert('La librería jsPDF no se cargó. Verificá tu conexión.'); return; }
+
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+
+    // ── A4 dimensions ─────────────────────────────────────
+    const PW  = 210;   // page width mm
+    const PH  = 297;   // page height mm
+    const ML  = 14;    // margin left
+    const MR  = 14;    // margin right
+    const MT  = 14;    // margin top
+    const MB  = 12;    // margin bottom
+    const CW  = PW - ML - MR;  // content width
+
+    // ── Color palette (RGB arrays) ─────────────────────────
+    const COL = {
+      bg:      [18,  18,  24],
+      surface: [26,  28,  34],
+      surface2:[40,  44,  52],
+      red:     [204, 17,  17],
+      green:   [0,   180, 100],
+      greenDk: [0,   80,  40],
+      blue:    [0,   151, 255],
+      yellow:  [255, 192, 0],
+      white:   [232, 237, 245],
+      gray:    [139, 149, 168],
+      gray2:   [68,  72,  80],
+      black:   [10,  12,  16],
+    };
+
+    // ── Page state ─────────────────────────────────────────
+    let pageNum = 0;
+
+    function newPage() {
+      if (pageNum > 0) doc.addPage();
+      pageNum++;
+      // Full dark background
+      doc.setFillColor(...COL.bg);
+      doc.rect(0, 0, PW, PH, 'F');
+      // Left red accent bar
+      doc.setFillColor(...COL.red);
+      doc.rect(0, 0, 3, PH, 'F');
+      // Footer
+      doc.setFontSize(7);
+      doc.setTextColor(...COL.gray2);
+      doc.setFont('helvetica', 'normal');
+      doc.text('PARESA · RELEVAMIENTO DE CAMPO', PW / 2, PH - 5, { align: 'center' });
+      doc.text(`Pág. ${pageNum}`, PW - MR, PH - 5, { align: 'right' });
+      return MT; // return starting Y
+    }
+
+    // ── Drawing helpers ────────────────────────────────────
+    function txt(text, x, y, size, color, style = 'normal', align = 'left', maxW = null) {
+      doc.setFontSize(size);
+      doc.setTextColor(...color);
+      doc.setFont('helvetica', style);
+      if (maxW) {
+        const lines = doc.splitTextToSize(String(text), maxW);
+        doc.text(lines, x, y, { align });
+        return lines.length * size * 0.352 + (lines.length - 1) * 0.5;
+      }
+      doc.text(String(text), x, y, { align });
+      return size * 0.352;
+    }
+
+    function hline(y, color = COL.gray2, lw = 0.3) {
+      doc.setDrawColor(...color);
+      doc.setLineWidth(lw);
+      doc.line(ML, y, PW - MR, y);
+    }
+
+    function badge(x, y, w, h, fillRgb, borderRgb, label, textRgb, fontSize = 6) {
+      doc.setFillColor(...fillRgb);
+      doc.setDrawColor(...borderRgb);
+      doc.setLineWidth(0.3);
+      doc.rect(x, y, w, h, 'FD');
+      doc.setFontSize(fontSize);
+      doc.setTextColor(...textRgb);
+      doc.setFont('helvetica', 'bold');
+      doc.text(label, x + w / 2, y + h / 2 + fontSize * 0.176, { align: 'center' });
+    }
+
+    function kpiCard(x, y, w, h, accentRgb, label, value) {
+      doc.setFillColor(...COL.surface);
+      doc.setDrawColor(...COL.surface2);
+      doc.setLineWidth(0.3);
+      doc.rect(x, y, w, h, 'FD');
+      // top accent bar
+      doc.setFillColor(...accentRgb);
+      doc.rect(x, y, w, 0.8, 'F');
+      // value
+      doc.setFontSize(20);
+      doc.setTextColor(...accentRgb);
+      doc.setFont('helvetica', 'bold');
+      doc.text(String(value), x + w / 2, y + h * 0.58, { align: 'center' });
+      // label
+      doc.setFontSize(5.5);
+      doc.setTextColor(...COL.gray);
+      doc.setFont('helvetica', 'normal');
+      doc.text(label, x + w / 2, y + h * 0.82, { align: 'center' });
+    }
+
+    // ── Ensure page break if not enough space ──────────────
+    function checkY(y, need, headerFn) {
+      if (y + need > PH - MB) {
+        const newY = headerFn ? headerFn() : newPage();
+        return newY;
+      }
+      return y;
+    }
+
+    // ════════════════════════════════════════════════════════
+    // PÁGINA 1: PORTADA
+    // ════════════════════════════════════════════════════════
+    let y = newPage();
+
+    // Brand label
+    txt('· PARESA ·', PW / 2, y + 10, 8, COL.gray, 'normal', 'center');
+
+    // Main title
+    doc.setFontSize(36);
+    doc.setTextColor(...COL.white);
+    doc.setFont('helvetica', 'bold');
+    doc.text('RELEVAMIENTO', ML + 4, y + 30);
+    doc.text('DE CAMPO', ML + 4, y + 45);
+
+    // Red underline accent
+    doc.setFillColor(...COL.red);
+    doc.rect(ML + 4, y + 48, 60, 1.2, 'F');
+
+    // Date
+    const today = new Date();
+    const monthYear = today.toLocaleDateString('es-PY', { month: 'long', year: 'numeric' }).toUpperCase();
+    txt(monthYear, ML + 4, y + 58, 11, COL.red, 'bold');
+
+    // Summary stats
+    const totalEnc  = filtered.length;
+    const totalSups = new Set(filtered.map(r => r.empleado)).size;
+    const totalPdvs = new Set(filtered.map(r => r.pdv)).size;
+    const totalForms = new Set(filtered.map(r => r.formulario)).size;
+
+    txt(`${totalEnc} encuestas  ·  ${totalSups} supervisores  ·  ${totalPdvs} puntos de venta`, ML + 4, y + 67, 8.5, COL.gray);
+
+    // KPI cards (4 across)
+    const kY = y + 80;
+    const kW = (CW - 9) / 4;
+    const kH = 22;
+    kpiCard(ML,                  kY, kW, kH, COL.white,  'ENCUESTAS',       totalEnc);
+    kpiCard(ML + kW + 3,         kY, kW, kH, COL.blue,   'SUPERVISORES',    totalSups);
+    kpiCard(ML + (kW + 3) * 2,   kY, kW, kH, COL.green,  'FORMULARIOS',     totalForms);
+    kpiCard(ML + (kW + 3) * 3,   kY, kW, kH, COL.red,    'PDVs VISITADOS',  totalPdvs);
+
+    // Generation date
+    txt(`Generado: ${new Date().toLocaleDateString('es-PY')} ${new Date().toLocaleTimeString('es-PY', {hour:'2-digit',minute:'2-digit'})}`,
+      PW - MR, PH - 22, 7, COL.gray2, 'normal', 'right');
+
+    // ════════════════════════════════════════════════════════
+    // PÁGINA 2: RESUMEN DE SUPERVISORES (tabla)
+    // ════════════════════════════════════════════════════════
+    y = newPage();
+
+    txt('RESUMEN DE COBERTURA', ML, y + 2, 7, COL.gray, 'normal');
+    y += 7;
+    doc.setFontSize(16);
+    doc.setTextColor(...COL.white);
+    doc.setFont('helvetica', 'bold');
+    doc.text('CUMPLIMIENTO POR SUPERVISOR', ML, y + 6);
+    y += 12;
+    hline(y, COL.gray2, 0.4);
+    y += 4;
+
+    // Table header
+    const cols = { name: 70, enc: 22, pdv: 22, done: 25, pend: 22, pct: 17 };
+    const rowH = 7;
+    const headerH = 8;
+
+    // Header bg
+    doc.setFillColor(...COL.surface2);
+    doc.rect(ML, y, CW, headerH, 'F');
+
+    doc.setFontSize(6);
+    doc.setTextColor(...COL.gray);
+    doc.setFont('helvetica', 'bold');
+    let cx = ML + 2;
+    doc.text('SUPERVISOR',    cx, y + 5.5); cx += cols.name;
+    doc.text('ENCUESTAS',     cx, y + 5.5); cx += cols.enc;
+    doc.text('PDVs',          cx, y + 5.5); cx += cols.pdv;
+    doc.text('COMPLETADAS',   cx, y + 5.5); cx += cols.done;
+    doc.text('PENDIENTES',    cx, y + 5.5); cx += cols.pend;
+    doc.text('%',             cx, y + 5.5);
+    y += headerH;
+
+    const supervisors = [...new Set(filtered.map(r => r.empleado))].sort();
+    let rowAlt = false;
+
+    supervisors.forEach(sup => {
+      // auto page break
+      if (y + rowH > PH - MB) {
+        y = newPage();
+        // re-draw table header after page break
+        doc.setFillColor(...COL.surface2);
+        doc.rect(ML, y, CW, headerH, 'F');
+        doc.setFontSize(6);
+        doc.setTextColor(...COL.gray);
+        doc.setFont('helvetica', 'bold');
+        let hx = ML + 2;
+        doc.text('SUPERVISOR',  hx, y + 5.5); hx += cols.name;
+        doc.text('ENCUESTAS',   hx, y + 5.5); hx += cols.enc;
+        doc.text('PDVs',        hx, y + 5.5); hx += cols.pdv;
+        doc.text('COMPLETADAS', hx, y + 5.5); hx += cols.done;
+        doc.text('PENDIENTES',  hx, y + 5.5); hx += cols.pend;
+        doc.text('%',           hx, y + 5.5);
+        y += headerH;
+        rowAlt = false;
+      }
+
+      const supData  = filtered.filter(r => r.empleado === sup);
+      const pdvCount = new Set(supData.map(r => r.pdv)).size;
+      const done     = ENCUESTAS_REQUERIDAS.filter(enc =>
+        supData.some(r => normalizeEncName(r.formulario) === normalizeEncName(enc))
+      ).length;
+      const pending  = ENCUESTAS_REQUERIDAS.length - done;
+      const pct      = Math.round((done / ENCUESTAS_REQUERIDAS.length) * 100);
+      const pctCol   = pct >= 80 ? COL.green : pct >= 40 ? COL.yellow : COL.red;
+
+      // Row background
+      if (rowAlt) {
+        doc.setFillColor(22, 25, 32);
+        doc.rect(ML, y, CW, rowH, 'F');
+      }
+
+      doc.setFontSize(7);
+      doc.setFont('helvetica', 'normal');
+      let rx = ML + 2;
+
+      // Name (truncated)
+      doc.setTextColor(...COL.white);
+      const supLabel = doc.splitTextToSize(sup, cols.name - 3)[0];
+      doc.text(supLabel, rx, y + 5); rx += cols.name;
+
+      doc.setTextColor(...COL.gray);
+      doc.text(String(supData.length), rx + cols.enc / 2 - 2, y + 5); rx += cols.enc;
+      doc.text(String(pdvCount),       rx + cols.pdv / 2 - 2, y + 5); rx += cols.pdv;
+
+      doc.setTextColor(...COL.green);
+      doc.setFont('helvetica', 'bold');
+      doc.text(String(done), rx + cols.done / 2 - 2, y + 5); rx += cols.done;
+
+      doc.setTextColor(pending > 0 ? COL.red[0] : COL.gray[0],
+                       pending > 0 ? COL.red[1] : COL.gray[1],
+                       pending > 0 ? COL.red[2] : COL.gray[2]);
+      doc.text(String(pending), rx + cols.pend / 2 - 2, y + 5); rx += cols.pend;
+
+      doc.setTextColor(...pctCol);
+      doc.text(`${pct}%`, rx + 2, y + 5);
+
+      // Row divider
+      doc.setDrawColor(...COL.surface2);
+      doc.setLineWidth(0.2);
+      doc.line(ML, y + rowH, PW - MR, y + rowH);
+
+      y += rowH;
+      rowAlt = !rowAlt;
+    });
+
+    // ════════════════════════════════════════════════════════
+    // PÁGINAS SIGUIENTES: DETALLE POR SUPERVISOR
+    // ════════════════════════════════════════════════════════
+    for (const supName of supervisors) {
+      const supData  = filtered.filter(r => r.empleado === supName);
+      const pdvCount = new Set(supData.map(r => r.pdv)).size;
+
+      const encStatus = ENCUESTAS_REQUERIDAS.map(enc => {
+        const matches = supData.filter(r =>
+          normalizeEncName(r.formulario) === normalizeEncName(enc)
+        );
+        const done = matches.length > 0;
+        const pdvCounts = {};
+        matches.forEach(r => { pdvCounts[r.pdv] = (pdvCounts[r.pdv] || 0) + 1; });
+        const pdvList = Object.entries(pdvCounts).sort((a, b) => b[1] - a[1]);
+        return { enc, done, count: matches.length, pdvList };
+      });
+
+      const doneCount = encStatus.filter(e => e.done).length;
+      const pct       = Math.round((doneCount / ENCUESTAS_REQUERIDAS.length) * 100);
+      const pctCol    = pct >= 80 ? COL.green : pct >= 40 ? COL.yellow : COL.red;
+
+      // ── Sup page header helper ────────────────────────────
+      function supPageHeader(isFirst) {
+        let py = newPage();
+        txt('DETALLE — SUPERVISOR', ML, py + 2, 7, COL.gray, 'normal');
+        py += 7;
+        doc.setFontSize(15);
+        doc.setTextColor(...COL.white);
+        doc.setFont('helvetica', 'bold');
+        const lines = doc.splitTextToSize(supName.toUpperCase(), CW - 55);
+        doc.text(lines, ML, py + 5);
+        const nameH = lines.length * 15 * 0.352;
+
+        if (isFirst) {
+          // Stats boxes top-right
+          const bx = PW - MR - 50;
+          const by = py - 1;
+          // Encuestas box
+          doc.setFillColor(...COL.surface);
+          doc.setDrawColor(...COL.gray2);
+          doc.setLineWidth(0.3);
+          doc.rect(bx, by, 23, 12, 'FD');
+          txt(String(supData.length), bx + 11.5, by + 6, 11, COL.white, 'bold', 'center');
+          txt('ENCUESTAS', bx + 11.5, by + 10.5, 5, COL.gray, 'normal', 'center');
+          // PDVs box
+          doc.setFillColor(...COL.surface);
+          doc.setDrawColor(...COL.blue);
+          doc.setLineWidth(0.4);
+          doc.rect(bx + 25, by, 23, 12, 'FD');
+          txt(String(pdvCount), bx + 36.5, by + 6, 11, COL.blue, 'bold', 'center');
+          txt('PDVs', bx + 36.5, by + 10.5, 5, COL.blue, 'normal', 'center');
+          // % badge
+          doc.setFillColor(pctCol[0], pctCol[1], pctCol[2], 0.15);
+          doc.setFillColor(Math.min(255, pctCol[0] + 180),
+                           Math.min(255, pctCol[1] + 180),
+                           Math.min(255, pctCol[2] + 180));
+          doc.setFillColor(COL.surface[0], COL.surface[1], COL.surface[2]);
+          doc.setDrawColor(...pctCol);
+          doc.setLineWidth(0.4);
+          doc.rect(bx, by + 14, 48, 7, 'FD');
+          txt(`${doneCount}/${ENCUESTAS_REQUERIDAS.length} formularios · ${pct}% completado`,
+            bx + 24, by + 19, 5.5, pctCol, 'bold', 'center');
+        } else {
+          txt('(continuación)', PW - MR, py + 4, 7, COL.gray2, 'normal', 'right');
+        }
+
+        py += Math.max(nameH + 6, 20);
+        hline(py, COL.gray2, 0.4);
+        return py + 4;
+      }
+
+      let curY = supPageHeader(true);
+      let isFirst = true;
+
+      // ── Draw each encuesta card ────────────────────────────
+      for (const enc of encStatus) {
+        const pdvRows   = enc.done ? enc.pdvList.length : 0;
+        const cardH     = 10 + pdvRows * 5.2;   // header 10mm + 5.2mm per PDV row
+        const minSpace  = 14;                    // minimum space needed to start a card
+
+        // Page break if not enough room
+        if (curY + Math.min(cardH, minSpace) > PH - MB) {
+          curY = supPageHeader(false);
+          isFirst = false;
+        }
+
+        // Card background
+        doc.setFillColor(...COL.surface);
+        doc.setDrawColor(...(enc.done ? COL.greenDk : [58, 10, 10]));
+        doc.setLineWidth(0.3);
+        doc.rect(ML, curY, CW, cardH, 'FD');
+
+        // Left accent bar
+        doc.setFillColor(...(enc.done ? COL.green : COL.red));
+        doc.rect(ML, curY, 1.5, cardH, 'F');
+
+        // Status icon
+        doc.setFontSize(10);
+        doc.setTextColor(...(enc.done ? COL.green : COL.red));
+        doc.setFont('helvetica', 'bold');
+        doc.text(enc.done ? '✓' : '✗', ML + 4, curY + 7);
+
+        // Encuesta name
+        doc.setFontSize(8);
+        doc.setTextColor(...COL.white);
+        doc.setFont('helvetica', 'bold');
+        const encLabel = doc.splitTextToSize(enc.enc, CW - 50);
+        doc.text(encLabel[0], ML + 11, curY + 7);
+
+        // Badge
+        const badgeLabel = enc.done ? 'COMPLETADO' : 'PENDIENTE';
+        const badgeFill  = enc.done ? COL.greenDk : [58, 10, 10];
+        const badgeBord  = enc.done ? COL.green : COL.red;
+        doc.setFillColor(...badgeFill);
+        doc.setDrawColor(...badgeBord);
+        doc.setLineWidth(0.3);
+        doc.rect(PW - MR - 26, curY + 2, 24, 6, 'FD');
+        doc.setFontSize(5.5);
+        doc.setTextColor(...badgeBord);
+        doc.setFont('helvetica', 'bold');
+        doc.text(badgeLabel, PW - MR - 14, curY + 6.2, { align: 'center' });
+
+        // Sub-info
+        const subText = enc.done
+          ? `${enc.count} registro${enc.count !== 1 ? 's' : ''} · ${enc.pdvList.length} PDV${enc.pdvList.length !== 1 ? 's' : ''}`
+          : 'Sin registros en el período filtrado';
+        doc.setFontSize(6.5);
+        doc.setTextColor(...COL.gray);
+        doc.setFont('helvetica', 'normal');
+        doc.text(subText, ML + 11, curY + 9.5);
+
+        // ── ALL PDV rows ──────────────────────────────────────
+        if (enc.done) {
+          let pdvY = curY + 11.5;
+          enc.pdvList.forEach(([pdv, cnt]) => {
+            // Green dot
+            doc.setFillColor(...COL.green);
+            doc.circle(ML + 6.5, pdvY - 0.8, 0.9, 'F');
+
+            // PDV name (truncated to fit)
+            doc.setFontSize(6);
+            doc.setTextColor(...COL.gray);
+            doc.setFont('helvetica', 'normal');
+            const pdvLabel = doc.splitTextToSize(pdv, CW - 25)[0];
+            doc.text(pdvLabel, ML + 9.5, pdvY);
+
+            // Count
+            doc.setTextColor(...COL.gray2);
+            doc.text(`${cnt}×`, PW - MR - 3, pdvY, { align: 'right' });
+
+            // Thin separator
+            doc.setDrawColor(30, 33, 40);
+            doc.setLineWidth(0.15);
+            doc.line(ML + 8, pdvY + 1.2, PW - MR - 2, pdvY + 1.2);
+
+            pdvY += 5.2;
+          });
+        }
+
+        curY += cardH + 2; // 2mm gap between cards
+      }
+    }
+
+    // ════════════════════════════════════════════════════════
+    // ÚLTIMA PÁGINA: Cierre
+    // ════════════════════════════════════════════════════════
+    y = newPage();
+    doc.setFontSize(11);
+    doc.setTextColor(...COL.gray);
+    doc.setFont('helvetica', 'normal');
+    doc.text('HACEMOS QUE TU', ML + 4, y + 40);
+    doc.setFontSize(28);
+    doc.setTextColor(...COL.white);
+    doc.setFont('helvetica', 'bold');
+    doc.text('MARCA SEA +', ML + 4, y + 55);
+    doc.setFillColor(...COL.red);
+    doc.rect(ML + 4, y + 58, 55, 1.2, 'F');
+    doc.setFontSize(10);
+    doc.setTextColor(...COL.gray);
+    doc.setFont('helvetica', 'normal');
+    doc.text('+ VISIBILIDAD', ML + 4, y + 72);
+    doc.text('+ DATOS',       ML + 4, y + 80);
+    doc.text('+ RESULTADOS',  ML + 4, y + 88);
+
+    // ── Save ─────────────────────────────────────────────────
+    const fecha = new Date().toLocaleDateString('es-PY').replace(/\//g, '-');
+    doc.save(`Reporte_Paresa_${fecha}.pdf`);
+
+  } catch(err) {
+    showAlert('Error al generar el PDF: ' + err.message);
+    console.error(err);
+  } finally {
+    btn.textContent = '📄 Exportar PDF';
+    btn.disabled = false;
+  }
+}
 /* ════════════════════════════════════════════════════════════
    EXPORTAR PPT — genera presentación estilo PARESA
    Estructura:
@@ -1980,6 +2467,11 @@ function escapeSup(name) {
    Paleta: fondo #141414, rojo #CC1111, verde #2E9E2E,
            azul #2A5CCC, texto #FFFFFF, gris #888888
 ════════════════════════════════════════════════════════════ */
+/* Escapa comillas simples para uso en atributo onclick */
+function escapeSup(name) {
+  return name.replace(/'/g, "\\'");
+}
+
 async function exportPPT() {
   if (!filtered.length) {
     showAlert('No hay datos filtrados para exportar.');
