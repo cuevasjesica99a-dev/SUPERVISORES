@@ -607,6 +607,7 @@
     font-family: var(--rpt-sans);
     font-size: 14px;
     -webkit-font-smoothing: antialiased;
+    isolation: isolate; /* creates stacking context — blocks dark parent from bleeding through */
   }
   .rpt-page-dark { background: var(--rpt-black); color: #fff; }
 
@@ -631,6 +632,8 @@
   .rpt-marka { display: inline-flex; align-items: center; gap: 0; font-family: var(--rpt-sans); font-weight: 700; letter-spacing: .04em; }
   .rpt-marka-plus { background: var(--rpt-accent); color: #fff; display: inline-flex; align-items: center; justify-content: center; font-weight: 600; line-height: 1; }
   .rpt-marka-text { background: #fff; color: var(--rpt-black); display: inline-flex; align-items: center; }
+  /* On dark pages (cover/closing) marka-text stays white; on cream pages it uses the paper color */
+  .rpt-page:not(.rpt-page-dark) .rpt-marka-text { background: var(--rpt-paper); }
   .rpt-marka-lg .rpt-marka-plus { width:46px;height:46px;font-size:32px;padding-bottom:4px; }
   .rpt-marka-lg .rpt-marka-text { height:46px;padding:0 18px;font-size:16px;letter-spacing:.06em; }
   .rpt-marka-sm .rpt-marka-plus { width:28px;height:28px;font-size:20px;padding-bottom:2px; }
@@ -657,7 +660,7 @@
   .rpt-foot-sep { color:var(--rpt-accent);font-size:14px; }
 
   /* ── Cumplimiento page ── */
-  .rpt-cp-head { display:flex;justify-content:space-between;align-items:center;padding-bottom:14px;border-bottom:2px solid var(--rpt-ink);margin-bottom:14px; }
+  .rpt-cp-head { display:flex;justify-content:space-between;align-items:center;padding-bottom:14px;border-bottom:2px solid var(--rpt-ink);margin-bottom:14px;background:transparent; }
   .rpt-cp-eyebrow { font-family:var(--rpt-sans);font-size:11px;letter-spacing:.32em;font-weight:600;color:var(--rpt-accent);text-transform:uppercase; }
   .rpt-cp-title { font-family:var(--rpt-sans);font-weight:700;font-size:36px;line-height:1;letter-spacing:-.02em;margin:0 0 6px;text-transform:uppercase; }
   .rpt-cp-sub { font-size:12px;color:var(--rpt-dim);margin:0 0 12px;line-height:1.4; }
@@ -712,7 +715,7 @@
   .rpt-tag-danger{ background:color-mix(in oklab,var(--rpt-danger) 14%,white);color:var(--rpt-danger); }
 
   /* ── Detail page ── */
-  .rpt-sd-head { display:flex;justify-content:space-between;align-items:flex-end;gap:20px;padding-bottom:14px;border-bottom:1px solid var(--rpt-rule);margin-bottom:12px; }
+  .rpt-sd-head { display:flex;justify-content:space-between;align-items:flex-end;gap:20px;padding-bottom:14px;border-bottom:1px solid var(--rpt-rule);margin-bottom:12px;background:transparent; }
   .rpt-sd-eyebrow { font:10px/1 var(--rpt-mono);letter-spacing:.18em;text-transform:uppercase;color:var(--rpt-dim);margin-bottom:8px; }
   .rpt-sd-name { font-family:var(--rpt-serif);font-weight:400;font-size:44px;line-height:1;letter-spacing:-.015em; }
   .rpt-sd-zona { margin-top:5px;font:11px/1 var(--rpt-mono);color:var(--rpt-dim);text-transform:uppercase;letter-spacing:.06em; }
@@ -725,7 +728,7 @@
   .rpt-sdp-alert { background:color-mix(in oklab,var(--rpt-alert) 12%,var(--rpt-paper));border-color:color-mix(in oklab,var(--rpt-alert) 40%,var(--rpt-rule));color:var(--rpt-alert); }
   .rpt-sdp-danger{ background:color-mix(in oklab,var(--rpt-danger) 12%,var(--rpt-paper));border-color:color-mix(in oklab,var(--rpt-danger) 40%,var(--rpt-rule));color:var(--rpt-danger); }
   .rpt-sd-kpis { display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin-bottom:14px; }
-  .rpt-sd-kpi { background:rgba(255,255,255,.5);border:1px solid var(--rpt-rule);padding:13px;display:flex;flex-direction:column; }
+  .rpt-sd-kpi { background:#fff;border:1px solid var(--rpt-rule);padding:13px;display:flex;flex-direction:column; }
   .rpt-sd-kpi-n { font-family:var(--rpt-serif);font-size:33px;line-height:1;font-variant-numeric:tabular-nums; }
   .rpt-sd-kpi-n small { font-size:16px;color:var(--rpt-dim); }
   .rpt-sd-kpi-l { font:10px/1 var(--rpt-mono);text-transform:uppercase;letter-spacing:.06em;color:var(--rpt-dim);margin-top:5px; }
@@ -735,7 +738,7 @@
   .rpt-sd-note-text { font:12px/1.5 var(--rpt-sans);color:var(--rpt-ink-2); }
 
   /* ── Form block ── */
-  .rpt-fb { background:rgba(255,255,255,.4);border:1px solid var(--rpt-rule);padding:13px;display:flex;flex-direction:column;gap:8px;overflow:hidden; }
+  .rpt-fb { background:#fff;border:1px solid var(--rpt-rule);padding:13px;display:flex;flex-direction:column;gap:8px;overflow:hidden; }
   .rpt-fb-head { display:flex;justify-content:space-between;align-items:center;gap:9px; }
   .rpt-fb-name { display:flex;align-items:center;gap:8px; }
   .rpt-fb-dot { width:9px;height:9px;border-radius:50%;flex-shrink:0; }
@@ -3045,41 +3048,38 @@ function openReporteEjecutivo() {
     const sc   = rptStatusColor(s.pct);
     const pendList = formsData.filter(f => s.forms[f.key].status === 'pendiente').map(f => f.nombre);
 
-    const formBlocks = formsData.map(f => {
+    const formBlocks = formsData.map((f, fi) => {
       const block  = s.forms[f.key];
       const isPend = block.status === 'pendiente';
-      const c  = rptFormColor(f.key);
-      const cs = rptFormSoft(f.key);
-      const ci = rptFormInk(f.key);
       const mx = isPend ? 1 : Math.max(1, ...block.items.map(it => it.n));
 
       return `<article class="rpt-fb ${isPend ? 'rpt-fb-pend' : ''}">
         <header class="rpt-fb-head">
           <div class="rpt-fb-name">
-            <span class="rpt-fb-dot" style="background:${c}"></span>
+            <span class="rpt-fb-dot rpt-fi-${fi}-dot"></span>
             <div>
-              <div class="rpt-fb-title" style="color:${ci}">${f.nombre}</div>
+              <div class="rpt-fb-title rpt-fi-${fi}-ink">${f.nombre}</div>
               ${f.sub ? `<div class="rpt-fb-sub">${f.sub}</div>` : ''}
             </div>
           </div>
           ${isPend
             ? `<span class="rpt-fb-tag rpt-fb-tag-pend">Pendiente</span>`
-            : `<span class="rpt-fb-tag rpt-fb-tag-ok" style="background:${cs};color:${ci}">Completado</span>`}
+            : `<span class="rpt-fb-tag rpt-fb-tag-ok rpt-fi-${fi}-tag">Completado</span>`}
         </header>
         ${isPend
           ? `<div class="rpt-fb-empty">Sin registros en el periodo filtrado</div>`
-          : `<div class="rpt-fb-meta" style="color:var(--rpt-dim)">
-              <span><strong style="color:${ci}">${block.registros}</strong> registro${block.registros!==1?'s':''}</span>
+          : `<div class="rpt-fb-meta">
+              <span><strong class="rpt-fi-${fi}-ink">${block.registros}</strong> registro${block.registros!==1?'s':''}</span>
               <span>·</span>
-              <span><strong style="color:${ci}">${block.pdvs}</strong> PDV${block.pdvs!==1?'s':''}</span>
+              <span><strong class="rpt-fi-${fi}-ink">${block.pdvs}</strong> PDV${block.pdvs!==1?'s':''}</span>
             </div>
             <ul class="rpt-fb-list">
               ${block.items.map(it => `<li>
                 <span class="rpt-fb-pdv">${it.pdv}</span>
-                <span class="rpt-fb-bar" style="background:color-mix(in oklab,${c} 12%,#f6f1e6)">
-                  <span class="rpt-fb-bar-fill" style="width:${Math.round((it.n/mx)*100)}%;background:${c}"></span>
+                <span class="rpt-fb-bar rpt-fi-${fi}-bg">
+                  <span class="rpt-fb-bar-fill rpt-fi-${fi}-dot" style="width:${Math.round((it.n/mx)*100)}%"></span>
                 </span>
-                <span class="rpt-fb-n" style="color:${ci}">${it.n}<small>×</small></span>
+                <span class="rpt-fb-n rpt-fi-${fi}-ink">${it.n}<small>×</small></span>
               </li>`).join('')}
             </ul>`}
       </article>`;
@@ -3141,7 +3141,33 @@ function openReporteEjecutivo() {
   </section>`;
 
   // ── Renderizar y abrir ───────────────────────────────────────
-  doc.innerHTML = pages;
+  // Generar CSS dinámico para los colores de formulario (hues oklch)
+  let dynCSS = '<style id="rptDynColors">';
+  formsData.forEach((f, fi) => {
+    const c  = rptFormColor(f.key);
+    const cs = rptFormSoft(f.key);
+    const ci = rptFormInk(f.key);
+    dynCSS += `
+      .rpt-fi-${fi}                   { background:#faf6e8; border-color:${cs}; }
+      .rpt-fi-${fi}-dot               { background:${c} !important; }
+      .rpt-fi-${fi}-ink               { color:${ci} !important; }
+      .rpt-fi-${fi}-bg                { background:${cs} !important; border-color:${c} !important; }
+      .rpt-fi-${fi}-bg .rpt-cp-form-name,
+      .rpt-fi-${fi}-bg .rpt-cp-form-val { color:${ci} !important; }
+      .rpt-fi-${fi}-tag               { background:${cs} !important; color:${ci} !important; }
+      .rpt-fb-bar.rpt-fi-${fi}-bg     { background:${cs} !important; border:none !important; }
+    `;
+  });
+  // vol-fill: ok rows should be dark ink (not colored), warn/alert/danger use their color
+  dynCSS += `
+    .rpt-vol-ok     { background: var(--rpt-ink); }
+    .rpt-vol-warn   { background: var(--rpt-warn); }
+    .rpt-vol-alert  { background: var(--rpt-alert); }
+    .rpt-vol-danger { background: var(--rpt-danger); }
+  `;
+  dynCSS += '</style>';
+
+  doc.innerHTML = dynCSS + pages;
   overlay.classList.add('open');
   overlay.scrollTop = 0;
   document.body.style.overflow = 'hidden';
