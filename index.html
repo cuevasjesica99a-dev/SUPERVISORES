@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>+MARKA · Tablero de Campo</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700;800&family=Inter:wght@300;400;500&display=swap" rel="stylesheet" />
+<!-- Fuentes del Reporte Ejecutivo +MARKA -->
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800;900&family=Geist+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet" />
 <!-- Chart.js -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <!-- SheetJS para leer archivos Excel -->
@@ -511,6 +513,266 @@
     border: none !important;
   }
   .btn-pdf:hover { filter: brightness(1.2); transform: translateY(-1px); }
+  .btn-report {
+    background: linear-gradient(135deg, #e2231a 0%, #a81812 100%);
+    color: #fff !important;
+    border: none !important;
+  }
+  .btn-report:hover { filter: brightness(1.15); transform: translateY(-1px); }
+
+  /* ══════════════════════════════════════════════════════════
+     REPORTE EJECUTIVO — OVERLAY + PÁGINAS A4
+  ══════════════════════════════════════════════════════════ */
+
+  /* Overlay que cubre toda la pantalla */
+  #reporteOverlay {
+    display: none;
+    position: fixed; inset: 0; z-index: 10000;
+    background: #1a1a1a;
+    overflow-y: auto;
+  }
+  #reporteOverlay.open { display: block; }
+
+  /* Barra de controles fija arriba */
+  .rpt-toolbar {
+    position: sticky; top: 0; z-index: 10001;
+    background: rgba(10,10,10,0.92);
+    backdrop-filter: blur(12px);
+    padding: 12px 24px;
+    display: flex; align-items: center; gap: 12px;
+    border-bottom: 1px solid rgba(255,255,255,.1);
+  }
+  .rpt-toolbar-title {
+    font-family: 'Geist', sans-serif;
+    font-weight: 700; font-size: 14px;
+    color: #fff; letter-spacing: .04em;
+    flex: 1;
+  }
+  .rpt-toolbar-hint {
+    font-family: 'Geist Mono', monospace;
+    font-size: 11px; color: rgba(255,255,255,.4);
+    letter-spacing: .04em;
+  }
+  .rpt-close {
+    background: rgba(255,255,255,.08);
+    border: 1px solid rgba(255,255,255,.15);
+    border-radius: 8px;
+    color: #fff; font-family: 'Geist', sans-serif;
+    font-size: 13px; font-weight: 600;
+    padding: 7px 16px; cursor: pointer;
+    transition: background .15s;
+  }
+  .rpt-close:hover { background: rgba(255,255,255,.15); }
+  .rpt-print {
+    background: #e2231a;
+    border: none; border-radius: 8px;
+    color: #fff; font-family: 'Geist', sans-serif;
+    font-size: 13px; font-weight: 600;
+    padding: 7px 16px; cursor: pointer;
+    transition: filter .15s;
+  }
+  .rpt-print:hover { filter: brightness(1.15); }
+
+  /* Contenedor de páginas */
+  .rpt-doc {
+    display: flex; flex-direction: column; align-items: center;
+    gap: 24px; padding: 24px 0 60px;
+
+    /* CSS variables del reporte ejecutivo */
+    --rpt-paper: #f6f1e6;
+    --rpt-paper-2: #ede6d4;
+    --rpt-ink: #15140f;
+    --rpt-ink-2: #2c2a23;
+    --rpt-dim: #76716a;
+    --rpt-rule: #e3dcc9;
+    --rpt-rule-2: #ede7d6;
+    --rpt-accent: #e2231a;
+    --rpt-ok: #3e6b34;
+    --rpt-warn: #9a7a1a;
+    --rpt-alert: #b56a1f;
+    --rpt-danger: #a83a2a;
+    --rpt-black: #0a0a0a;
+    --rpt-serif: "Instrument Serif", Georgia, serif;
+    --rpt-sans: "Geist", ui-sans-serif, system-ui, sans-serif;
+    --rpt-mono: "Geist Mono", ui-monospace, monospace;
+  }
+
+  /* Página A4: 1200 × 1697px (ratio exacto 210/297) */
+  .rpt-page {
+    width: 1200px; height: 1697px;
+    background: var(--rpt-paper);
+    color: var(--rpt-ink);
+    box-shadow: 0 1px 0 rgba(255,255,255,.06), 0 20px 60px rgba(0,0,0,.5);
+    position: relative; overflow: hidden; flex-shrink: 0;
+    font-family: var(--rpt-sans);
+    font-size: 14px;
+    -webkit-font-smoothing: antialiased;
+  }
+  .rpt-page-dark { background: var(--rpt-black); color: #fff; }
+
+  .rpt-page-inner {
+    padding: 64px 72px 90px;
+    height: 1697px; overflow: hidden;
+    display: flex; flex-direction: column;
+  }
+  .rpt-page-foot {
+    position: absolute; left: 72px; right: 72px; bottom: 24px;
+    display: flex; justify-content: space-between;
+    font: 11px/1 var(--rpt-mono);
+    color: var(--rpt-dim); letter-spacing: .04em; text-transform: uppercase;
+    border-top: 1px solid var(--rpt-rule); padding-top: 14px;
+  }
+  .rpt-page-dark .rpt-page-foot {
+    color: rgba(255,255,255,.3);
+    border-top-color: rgba(255,255,255,.1);
+  }
+
+  /* ── Logo +MARKA ── */
+  .rpt-marka { display: inline-flex; align-items: center; gap: 0; font-family: var(--rpt-sans); font-weight: 700; letter-spacing: .04em; }
+  .rpt-marka-plus { background: var(--rpt-accent); color: #fff; display: inline-flex; align-items: center; justify-content: center; font-weight: 600; line-height: 1; }
+  .rpt-marka-text { background: #fff; color: var(--rpt-black); display: inline-flex; align-items: center; }
+  .rpt-marka-lg .rpt-marka-plus { width:46px;height:46px;font-size:32px;padding-bottom:4px; }
+  .rpt-marka-lg .rpt-marka-text { height:46px;padding:0 18px;font-size:16px;letter-spacing:.06em; }
+  .rpt-marka-sm .rpt-marka-plus { width:28px;height:28px;font-size:20px;padding-bottom:2px; }
+  .rpt-marka-sm .rpt-marka-text { height:28px;padding:0 10px;font-size:12px;letter-spacing:.06em; }
+
+  /* ── Cover ── */
+  .rpt-cover {
+    position: relative; width: 100%; height: 1697px;
+    background: var(--rpt-black); color: #fff;
+    display: flex; flex-direction: column;
+    padding: 48px 64px 48px 80px; overflow: hidden;
+  }
+  .rpt-cover-bar { position: absolute; left:0;top:0;bottom:0;width:8px; background:var(--rpt-accent); }
+  .rpt-cover-head { display: flex; align-items: flex-start; }
+  .rpt-cover-body { margin-top: 160px; flex: 1; }
+  .rpt-cover-title { font-family:var(--rpt-sans);font-weight:800;font-size:108px;line-height:.96;letter-spacing:-.02em;color:#fff;margin:0;text-transform:uppercase; }
+  .rpt-cover-sub { margin-top:32px;font-family:var(--rpt-sans);font-size:17px;letter-spacing:.04em;font-weight:400;color:#cfcfcf;text-transform:uppercase; }
+  .rpt-cover-date { margin-top:36px;font-family:var(--rpt-sans);font-style:italic;font-size:14px;letter-spacing:.12em;font-weight:500;color:#9a9a9a;text-transform:uppercase; }
+  .rpt-cover-kpis { margin-top:48px;display:grid;grid-template-columns:repeat(4,1fr);gap:12px; }
+  .rpt-cover-kpi { background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);padding:18px 14px; }
+  .rpt-cover-kpi-n { font-family:var(--rpt-sans);font-weight:800;font-size:36px;line-height:1;color:#fff;font-variant-numeric:tabular-nums; }
+  .rpt-cover-kpi-l { font:10px/1 var(--rpt-mono);color:rgba(255,255,255,.45);text-transform:uppercase;letter-spacing:.1em;margin-top:8px; }
+  .rpt-cover-foot { margin-top:auto;display:flex;align-items:center;justify-content:center;gap:60px;padding-top:28px;border-top:1px solid rgba(255,255,255,.12);font-family:var(--rpt-sans);font-size:11px;letter-spacing:.42em;font-weight:500;color:#bdbdbd;text-transform:uppercase; }
+  .rpt-foot-sep { color:var(--rpt-accent);font-size:14px; }
+
+  /* ── Cumplimiento page ── */
+  .rpt-cp-head { display:flex;justify-content:space-between;align-items:center;padding-bottom:14px;border-bottom:2px solid var(--rpt-ink);margin-bottom:14px; }
+  .rpt-cp-eyebrow { font-family:var(--rpt-sans);font-size:11px;letter-spacing:.32em;font-weight:600;color:var(--rpt-accent);text-transform:uppercase; }
+  .rpt-cp-title { font-family:var(--rpt-sans);font-weight:700;font-size:36px;line-height:1;letter-spacing:-.02em;margin:0 0 6px;text-transform:uppercase; }
+  .rpt-cp-sub { font-size:12px;color:var(--rpt-dim);margin:0 0 12px;line-height:1.4; }
+  .rpt-cp-totals { display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:9px 12px;background:#fff;border:1px solid var(--rpt-ink);margin-bottom:10px; }
+  .rpt-cp-total { display:flex;align-items:baseline;gap:5px; }
+  .rpt-cp-total-n { font-family:var(--rpt-sans);font-weight:700;font-size:20px;line-height:1;font-variant-numeric:tabular-nums;letter-spacing:-.01em; }
+  .rpt-cp-total-l { font:10px/1 var(--rpt-mono);text-transform:uppercase;letter-spacing:.06em;color:var(--rpt-dim); }
+  .rpt-cp-spacer { flex:1;border-left:1px solid var(--rpt-rule);align-self:stretch; }
+  .rpt-cp-form-chip { display:flex;align-items:center;gap:5px;padding:4px 7px;background:#faf6e8;border:1px solid var(--rpt-rule); }
+  .rpt-cp-form-dot { width:7px;height:7px;border-radius:50%;flex-shrink:0; }
+  .rpt-cp-form-l { font-size:10px;font-weight:600;letter-spacing:.04em; }
+  .rpt-cp-form-n { font:10px/1 var(--rpt-mono);font-variant-numeric:tabular-nums;font-weight:600; }
+  .rpt-cp-list { display:flex;flex-direction:column;gap:4px; }
+  .rpt-cp-row { display:grid;grid-template-columns:38px 5px 1.5fr 1.7fr 2.2fr 110px;gap:10px;align-items:stretch;background:#fff;border:1px solid var(--rpt-rule);min-height:66px; }
+  .rpt-cp-rank { font-family:var(--rpt-sans);font-weight:700;font-size:16px;display:flex;align-items:center;justify-content:center;color:var(--rpt-dim);font-variant-numeric:tabular-nums;background:#faf6e8;border-right:1px solid var(--rpt-rule); }
+  .rpt-cp-bar { align-self:stretch; }
+  .rpt-row-ok  .rpt-cp-bar { background:var(--rpt-ok); }
+  .rpt-row-warn .rpt-cp-bar { background:var(--rpt-warn); }
+  .rpt-row-alert .rpt-cp-bar { background:var(--rpt-alert); }
+  .rpt-row-danger .rpt-cp-bar { background:var(--rpt-danger); }
+  .rpt-cp-id { display:flex;flex-direction:column;justify-content:center;gap:3px;padding:8px 0; }
+  .rpt-cp-name { font-size:12px;font-weight:600;letter-spacing:-.005em;line-height:1.2; }
+  .rpt-cp-zona { font:9px/1.3 var(--rpt-mono);color:var(--rpt-dim);text-transform:uppercase;letter-spacing:.04em; }
+  .rpt-cp-volume { display:flex;flex-direction:column;justify-content:center;gap:5px;padding:8px 0; }
+  .rpt-cp-vol-bar { height:9px;background:var(--rpt-rule-2);position:relative; }
+  .rpt-cp-vol-fill { height:100%;background:var(--rpt-ink); }
+  .rpt-row-warn .rpt-cp-vol-fill { background:var(--rpt-warn); }
+  .rpt-row-alert .rpt-cp-vol-fill { background:var(--rpt-alert); }
+  .rpt-row-danger .rpt-cp-vol-fill { background:var(--rpt-danger); }
+  .rpt-cp-vol-stats { display:flex;align-items:baseline;gap:5px; }
+  .rpt-cp-vol-n { font-family:var(--rpt-sans);font-weight:700;font-size:17px;line-height:1;font-variant-numeric:tabular-nums;letter-spacing:-.01em; }
+  .rpt-cp-vol-l { font:9px/1 var(--rpt-mono);color:var(--rpt-dim);text-transform:uppercase;letter-spacing:.04em; }
+  .rpt-cp-forms { display:grid;grid-template-columns:repeat(5,1fr);gap:4px;padding:8px 0;align-items:stretch; }
+  .rpt-cp-form { display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:5px 3px;text-align:center;min-width:0; }
+  .rpt-cp-form-name { font-size:8px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;line-height:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%; }
+  .rpt-cp-form-val { font-family:var(--rpt-sans);font-weight:700;font-size:15px;line-height:1;font-variant-numeric:tabular-nums; }
+  .rpt-cp-form-empty { background:var(--rpt-paper);border:1px dashed var(--rpt-rule); }
+  .rpt-cp-form-empty .rpt-cp-form-name,
+  .rpt-cp-form-empty .rpt-cp-form-val { color:var(--rpt-dim);font-weight:500; }
+  .rpt-cp-cierre { display:flex;flex-direction:column;align-items:flex-end;justify-content:center;gap:3px;padding:8px 12px 8px 0; }
+  .rpt-cp-pct { font-family:var(--rpt-sans);font-weight:800;font-size:22px;line-height:1;font-variant-numeric:tabular-nums;letter-spacing:-.01em; }
+  .rpt-cp-pct small { font-size:12px;font-weight:600; }
+  .rpt-pct-ok { color:var(--rpt-ok); }
+  .rpt-pct-warn { color:var(--rpt-warn); }
+  .rpt-pct-alert { color:var(--rpt-alert); }
+  .rpt-pct-danger { color:var(--rpt-danger); }
+  .rpt-cp-forms-l { font:8px/1 var(--rpt-mono);color:var(--rpt-dim);text-transform:uppercase;letter-spacing:.06em; }
+  .rpt-cp-tag { margin-top:2px;font:8px/1 var(--rpt-mono);text-transform:uppercase;letter-spacing:.06em;font-weight:600;padding:3px 6px; }
+  .rpt-tag-ok    { background:color-mix(in oklab,var(--rpt-ok) 12%,white);    color:var(--rpt-ok); }
+  .rpt-tag-warn  { background:color-mix(in oklab,var(--rpt-warn) 14%,white);  color:var(--rpt-warn); }
+  .rpt-tag-alert { background:color-mix(in oklab,var(--rpt-alert) 14%,white); color:var(--rpt-alert); }
+  .rpt-tag-danger{ background:color-mix(in oklab,var(--rpt-danger) 14%,white);color:var(--rpt-danger); }
+
+  /* ── Detail page ── */
+  .rpt-sd-head { display:flex;justify-content:space-between;align-items:flex-end;gap:20px;padding-bottom:14px;border-bottom:1px solid var(--rpt-rule);margin-bottom:12px; }
+  .rpt-sd-eyebrow { font:10px/1 var(--rpt-mono);letter-spacing:.18em;text-transform:uppercase;color:var(--rpt-dim);margin-bottom:8px; }
+  .rpt-sd-name { font-family:var(--rpt-serif);font-weight:400;font-size:44px;line-height:1;letter-spacing:-.015em; }
+  .rpt-sd-zona { margin-top:5px;font:11px/1 var(--rpt-mono);color:var(--rpt-dim);text-transform:uppercase;letter-spacing:.06em; }
+  .rpt-sd-pct { text-align:right;padding:13px 16px;border:1px solid;min-width:126px; }
+  .rpt-sd-pct-n { font-family:var(--rpt-serif);font-size:44px;line-height:.95;font-variant-numeric:tabular-nums; }
+  .rpt-sd-pct-n small { font-size:20px; }
+  .rpt-sd-pct-lbl { font:10px/1 var(--rpt-mono);text-transform:uppercase;letter-spacing:.06em;margin-top:5px;font-weight:500; }
+  .rpt-sdp-ok    { background:color-mix(in oklab,var(--rpt-ok) 8%,var(--rpt-paper));    border-color:color-mix(in oklab,var(--rpt-ok) 30%,var(--rpt-rule));    color:var(--rpt-ok); }
+  .rpt-sdp-warn  { background:color-mix(in oklab,var(--rpt-warn) 10%,var(--rpt-paper)); border-color:color-mix(in oklab,var(--rpt-warn) 35%,var(--rpt-rule)); color:var(--rpt-warn); }
+  .rpt-sdp-alert { background:color-mix(in oklab,var(--rpt-alert) 12%,var(--rpt-paper));border-color:color-mix(in oklab,var(--rpt-alert) 40%,var(--rpt-rule));color:var(--rpt-alert); }
+  .rpt-sdp-danger{ background:color-mix(in oklab,var(--rpt-danger) 12%,var(--rpt-paper));border-color:color-mix(in oklab,var(--rpt-danger) 40%,var(--rpt-rule));color:var(--rpt-danger); }
+  .rpt-sd-kpis { display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin-bottom:14px; }
+  .rpt-sd-kpi { background:rgba(255,255,255,.5);border:1px solid var(--rpt-rule);padding:13px;display:flex;flex-direction:column; }
+  .rpt-sd-kpi-n { font-family:var(--rpt-serif);font-size:33px;line-height:1;font-variant-numeric:tabular-nums; }
+  .rpt-sd-kpi-n small { font-size:16px;color:var(--rpt-dim); }
+  .rpt-sd-kpi-l { font:10px/1 var(--rpt-mono);text-transform:uppercase;letter-spacing:.06em;color:var(--rpt-dim);margin-top:5px; }
+  .rpt-sd-forms { display:grid;grid-template-columns:1fr 1fr;gap:9px; }
+  .rpt-sd-note { margin-top:10px;padding:9px 13px;background:color-mix(in oklab,var(--rpt-danger) 6%,var(--rpt-paper));border-left:3px solid var(--rpt-danger);display:flex;gap:9px;align-items:baseline; }
+  .rpt-sd-note-lbl { font:9px/1 var(--rpt-mono);text-transform:uppercase;letter-spacing:.1em;color:var(--rpt-danger);font-weight:600;flex-shrink:0; }
+  .rpt-sd-note-text { font:12px/1.5 var(--rpt-sans);color:var(--rpt-ink-2); }
+
+  /* ── Form block ── */
+  .rpt-fb { background:rgba(255,255,255,.4);border:1px solid var(--rpt-rule);padding:13px;display:flex;flex-direction:column;gap:8px;overflow:hidden; }
+  .rpt-fb-head { display:flex;justify-content:space-between;align-items:center;gap:9px; }
+  .rpt-fb-name { display:flex;align-items:center;gap:8px; }
+  .rpt-fb-dot { width:9px;height:9px;border-radius:50%;flex-shrink:0; }
+  .rpt-fb-title { font-size:13px;font-weight:600;letter-spacing:-.005em; }
+  .rpt-fb-sub { font:9px/1 var(--rpt-mono);text-transform:uppercase;letter-spacing:.06em;color:var(--rpt-dim);margin-top:2px; }
+  .rpt-fb-tag { font:9px/1 var(--rpt-mono);text-transform:uppercase;letter-spacing:.08em;padding:4px 8px;border-radius:999px;font-weight:500; }
+  .rpt-fb-tag-ok   { border-radius:999px; }
+  .rpt-fb-tag-pend { background:color-mix(in oklab,var(--rpt-danger) 8%,var(--rpt-paper));color:var(--rpt-danger);border:1px dashed color-mix(in oklab,var(--rpt-danger) 40%,transparent); }
+  .rpt-fb-meta { font:10px/1 var(--rpt-mono);color:var(--rpt-dim);display:flex;gap:6px;align-items:center;text-transform:uppercase;letter-spacing:.04em; }
+  .rpt-fb-meta strong { font-weight:600;font-variant-numeric:tabular-nums; }
+  .rpt-fb-list { list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px; }
+  .rpt-fb-list li { display:grid;grid-template-columns:1fr 52px 30px;gap:7px;align-items:center;font-size:10px; }
+  .rpt-fb-pdv { font-weight:500;letter-spacing:-.005em;line-height:1.25;color:var(--rpt-ink); }
+  .rpt-fb-bar { height:4px;border-radius:999px;overflow:hidden; }
+  .rpt-fb-bar-fill { height:100%;border-radius:999px; }
+  .rpt-fb-n { font:11px/1 var(--rpt-mono);font-variant-numeric:tabular-nums;text-align:right;font-weight:600; }
+  .rpt-fb-n small { font-size:8px;color:var(--rpt-dim);margin-left:1px; }
+  .rpt-fb-empty { font:11px/1.4 var(--rpt-mono);color:var(--rpt-dim);text-transform:uppercase;letter-spacing:.04em;padding:11px;background:color-mix(in oklab,var(--rpt-danger) 4%,var(--rpt-paper));text-align:center; }
+  .rpt-fb-pend { opacity:.78; }
+
+  /* ── Closing ── */
+  .rpt-close-eyebrow { font-family:var(--rpt-sans);font-size:11px;letter-spacing:.32em;font-weight:600;color:var(--rpt-accent);text-transform:uppercase;margin:0 0 24px; }
+  .rpt-plus-h { color:var(--rpt-accent);font-weight:800; }
+  .rpt-close-grid { margin-top:56px;display:grid;grid-template-columns:repeat(4,1fr);gap:0;border-top:1px solid rgba(255,255,255,.12);padding-top:24px; }
+  .rpt-close-grid > div { padding-right:20px;border-right:1px solid rgba(255,255,255,.08); }
+  .rpt-close-grid > div:last-child { border-right:0; }
+  .rpt-close-l { font-family:var(--rpt-sans);font-size:11px;letter-spacing:.18em;font-weight:500;color:#9a9a9a;text-transform:uppercase;margin-bottom:12px; }
+  .rpt-close-v { font-family:var(--rpt-sans);font-weight:700;font-size:34px;letter-spacing:-.01em;color:#fff;font-variant-numeric:tabular-nums; }
+
+  /* Print: solo el reporte ejecutivo */
+  @media print {
+    .app, #reporteOverlay .rpt-toolbar { display: none !important; }
+    #reporteOverlay { position: static; overflow: visible; }
+    #reporteOverlay.open { display: block; }
+    .rpt-doc { padding: 0; gap: 0; }
+    .rpt-page { box-shadow: none; page-break-after: always; break-after: page; }
+  }
 
   /* ─── DASHBOARD SECTIONS (inicialmente ocultas) ─────────── */
   #dashboardContent { display: none; }
@@ -850,7 +1112,10 @@
         <span id="lastUpdate">Sin datos cargados</span>
       </span>
       <button class="btn btn-pdf" id="btnExportPdf" onclick="exportPDF()" style="display:none">
-        📄 Exportar Reporte PDF
+        📄 Exportar PDF
+      </button>
+      <button class="btn btn-report" id="btnReporteEjecutivo" onclick="openReporteEjecutivo()" style="display:none">
+        📋 Reporte Ejecutivo
       </button>
       <button class="btn btn-ghost" onclick="clearAll()">🗑 Limpiar todo</button>
     </div>
@@ -1079,6 +1344,19 @@
   </main>
 </div>
 
+<!-- ─── REPORTE EJECUTIVO OVERLAY ───────────────────────────── -->
+<div id="reporteOverlay">
+  <div class="rpt-toolbar">
+    <div class="rpt-toolbar-title">+MARKA · Reporte Ejecutivo</div>
+    <span class="rpt-toolbar-hint">Cmd/Ctrl+P → Guardar como PDF · Márgenes: Ninguno · Gráficos en fondo</span>
+    <button class="rpt-print" onclick="window.print()">🖨 Imprimir / PDF</button>
+    <button class="rpt-close" onclick="closeReporteEjecutivo()">✕ Cerrar</button>
+  </div>
+  <div class="rpt-doc" id="rptDoc">
+    <!-- Páginas generadas dinámicamente por JS -->
+  </div>
+</div>
+
 <!-- ─── SCRIPT ───────────────────────────────────────────────── -->
 <script>
 /* ════════════════════════════════════════════════════════════
@@ -1249,6 +1527,7 @@ async function processAllFiles() {
   document.getElementById('dashboardContent').classList.add('visible');
   document.getElementById('statusDot').classList.add('live');
   document.getElementById('btnExportPdf').style.display = 'inline-flex';
+  document.getElementById('btnReporteEjecutivo').style.display = 'inline-flex';
 
   // Scroll suave al dashboard
   setTimeout(() => {
@@ -2558,6 +2837,324 @@ async function exportPDF() {
 }
 /* Escapa comillas simples para uso en atributo onclick */
 function escapeSup(name) { return name.replace(/'/g, "\\'"); }
+
+/* ════════════════════════════════════════════════════════════
+   REPORTE EJECUTIVO — genera páginas A4 en el overlay
+   con el mismo estilo que Reporte_Ejecutivo_MARKA.html
+   a partir de los datos filtrados del dashboard.
+════════════════════════════════════════════════════════════ */
+
+// Colores por formulario (oklch → CSS color)
+const RPT_FORM_COLORS = {
+  hues: {},  // se rellenan dinámicamente con los formularios detectados
+};
+
+function rptFormColor(key)  { return `oklch(0.62 0.13 ${RPT_FORM_COLORS.hues[key] ?? 18})`; }
+function rptFormSoft(key)   { return `oklch(0.94 0.04 ${RPT_FORM_COLORS.hues[key] ?? 18})`; }
+function rptFormInk(key)    { return `oklch(0.34 0.10 ${RPT_FORM_COLORS.hues[key] ?? 18})`; }
+
+// Asigna hues distintas a cada formulario en orden
+const RPT_HUES = [18, 200, 280, 145, 50, 160, 340, 90];
+
+function rptStatusColor(pct) {
+  return pct >= 100 ? 'ok' : pct >= 80 ? 'warn' : pct >= 60 ? 'alert' : 'danger';
+}
+function rptStatusLabel(pct) {
+  return pct >= 100 ? 'Completo' : pct >= 80 ? 'Casi al día' : pct >= 60 ? 'Atrasado' : 'Crítico';
+}
+
+function openReporteEjecutivo() {
+  const overlay = document.getElementById('reporteOverlay');
+  const doc     = document.getElementById('rptDoc');
+
+  if (!filtered.length) {
+    showAlert('No hay datos filtrados para generar el reporte.');
+    return;
+  }
+
+  // ── Construir dataset del reporte desde filtered ───────────
+  // Detectar formularios únicos con su hue
+  const formularioKeys = [...new Set(filtered.map(r => normalizeEncName(r.formulario)))];
+
+  // Para cada ENCUESTA_REQUERIDA mapear al nombre normalizado
+  const formsData = ENCUESTAS_REQUERIDAS.map((enc, idx) => {
+    const key = normalizeEncName(enc);
+    RPT_FORM_COLORS.hues[key] = RPT_HUES[idx % RPT_HUES.length];
+    return { key, nombre: enc, sub: 'SPV', hue: RPT_HUES[idx % RPT_HUES.length] };
+  });
+
+  // Total por formulario (para la franja de totales)
+  formsData.forEach(f => {
+    f.total = filtered.filter(r => normalizeEncName(r.formulario) === f.key).length;
+  });
+
+  // Supervisores y sus datos
+  const supervisorNames = [...new Set(filtered.map(r => r.empleado))].sort();
+  const totalEnc  = filtered.length;
+  const totalSups = supervisorNames.length;
+  const totalPdvs = new Set(filtered.map(r => r.pdv)).size;
+  const maxEnc    = Math.max(...supervisorNames.map(s => filtered.filter(r => r.empleado === s).length));
+
+  const supervisores = supervisorNames.map(name => {
+    const supRows = filtered.filter(r => r.empleado === name);
+    const pdvs    = new Set(supRows.map(r => r.pdv)).size;
+    const forms   = {};
+    formsData.forEach(f => {
+      const matches = supRows.filter(r => normalizeEncName(r.formulario) === f.key);
+      const pdvCounts = {};
+      matches.forEach(r => { pdvCounts[r.pdv] = (pdvCounts[r.pdv] || 0) + 1; });
+      const items = Object.entries(pdvCounts).sort((a,b) => b[1]-a[1]).map(([pdv,n]) => ({pdv,n}));
+      forms[f.key] = {
+        status: matches.length > 0 ? 'completado' : 'pendiente',
+        registros: matches.length,
+        pdvs: Object.keys(pdvCounts).length,
+        items,
+      };
+    });
+    const completadas = formsData.filter(f => forms[f.key].status === 'completado').length;
+    const pendientes  = formsData.length - completadas;
+    const pct         = Math.round((completadas / formsData.length) * 100);
+    // por: totales por formulario para la grilla
+    const por = {};
+    formsData.forEach(f => { por[f.key] = forms[f.key].registros; });
+    return { name, zona: '', encuestas: supRows.length, pdvs, completadas, pendientes, pct, forms, por };
+  });
+
+  // Período del reporte
+  const dates   = filtered.map(r => r.dateISO).filter(Boolean).sort();
+  const periodoStr = dates.length
+    ? `${dates[0].split('-').reverse().join('/')} — ${dates[dates.length-1].split('-').reverse().join('/')}`
+    : 'Período filtrado';
+
+  // ── Generar HTML de las páginas ────────────────────────────
+  let pages = '';
+  const totalPages = 1 + 1 + supervisores.length + 1; // cover + cumplimiento + sups + closing
+  let pageN = 0;
+
+  function pageNum() { return ++pageN; }
+
+  // Helper logo
+  const markaSm = `<div class="rpt-marka rpt-marka-sm"><span class="rpt-marka-plus">+</span><span class="rpt-marka-text">MARKA</span></div>`;
+  const markaLg = `<div class="rpt-marka rpt-marka-lg"><span class="rpt-marka-plus">+</span><span class="rpt-marka-text">MARKA</span></div>`;
+
+  function pageFoot(n) {
+    return `<footer class="rpt-page-foot">
+      <span>+MARKA · Relevamiento de Campo · ${periodoStr}</span>
+      <span>${String(n).padStart(2,'0')} / ${String(totalPages).padStart(2,'0')}</span>
+    </footer>`;
+  }
+
+  // ── PORTADA ─────────────────────────────────────────────────
+  const p1 = pageNum();
+  const kpis = [
+    { n: totalEnc,  l: 'Encuestas' },
+    { n: totalPdvs, l: 'Puntos de Venta' },
+    { n: totalSups, l: 'Supervisores' },
+    { n: formsData.length, l: 'Formularios' },
+  ];
+  pages += `
+  <section class="rpt-page rpt-page-dark" data-pg="${p1}">
+    <div class="rpt-cover">
+      <div class="rpt-cover-bar"></div>
+      <header class="rpt-cover-head">${markaLg}</header>
+      <div class="rpt-cover-body">
+        <h1 class="rpt-cover-title">RELEVAMIENTO<br>DE CAMPO</h1>
+        <p class="rpt-cover-sub">SUPERVISIÓN Y RELEVAMIENTO EN PUNTO DE VENTA.</p>
+        <p class="rpt-cover-date">${periodoStr.toUpperCase()}</p>
+        <div class="rpt-cover-kpis">
+          ${kpis.map(k => `<div class="rpt-cover-kpi">
+            <div class="rpt-cover-kpi-n">${k.n.toLocaleString('es-PY')}</div>
+            <div class="rpt-cover-kpi-l">${k.l}</div>
+          </div>`).join('')}
+        </div>
+      </div>
+      <footer class="rpt-cover-foot">
+        <span>VISIBILIDAD</span><span class="rpt-foot-sep">·</span>
+        <span>VENTAS</span><span class="rpt-foot-sep">·</span>
+        <span>MARCA</span>
+      </footer>
+    </div>
+  </section>`;
+
+  // ── CUMPLIMIENTO ─────────────────────────────────────────────
+  const p2 = pageNum();
+  const at100   = supervisores.filter(s => s.pct === 100).length;
+  const at60_80 = supervisores.filter(s => s.pct >= 60 && s.pct < 100).length;
+  const atLow   = supervisores.filter(s => s.pct < 60).length;
+
+  pages += `
+  <section class="rpt-page" data-pg="${p2}">
+    <div class="rpt-page-inner">
+      <header class="rpt-cp-head">${markaSm}<div class="rpt-cp-eyebrow">CUMPLIMIENTO</div></header>
+      <h2 class="rpt-cp-title">Cumplimiento por supervisor</h2>
+      <p class="rpt-cp-sub">${totalEnc.toLocaleString('es-PY')} encuestas · ${totalSups} supervisores · ${formsData.length} formularios. Ordenados de mayor a menor volumen.</p>
+      <div class="rpt-cp-totals">
+        <div class="rpt-cp-total"><span class="rpt-cp-total-n">${at100}</span><span class="rpt-cp-total-l">al 100%</span></div>
+        <div class="rpt-cp-total"><span class="rpt-cp-total-n">${at60_80}</span><span class="rpt-cp-total-l">60–80%</span></div>
+        <div class="rpt-cp-total"><span class="rpt-cp-total-n">${atLow}</span><span class="rpt-cp-total-l">≤ 40%</span></div>
+        <div class="rpt-cp-spacer"></div>
+        ${formsData.map(f => `
+          <div class="rpt-cp-form-chip" style="--c:${rptFormColor(f.key)}">
+            <span class="rpt-cp-form-dot" style="background:${rptFormColor(f.key)}"></span>
+            <span class="rpt-cp-form-l" style="color:${rptFormInk(f.key)}">${f.nombre.split(' ')[0]}</span>
+            <span class="rpt-cp-form-n">${f.total}</span>
+          </div>`).join('')}
+      </div>
+      <div class="rpt-cp-list">
+        ${supervisores.map((s, i) => {
+          const sc  = rptStatusColor(s.pct);
+          const col = rptFormColor;
+          return `<article class="rpt-cp-row rpt-row-${sc}">
+            <div class="rpt-cp-rank">${String(i+1).padStart(2,'0')}</div>
+            <div class="rpt-cp-bar"></div>
+            <div class="rpt-cp-id">
+              <div class="rpt-cp-name">${s.name}</div>
+              <div class="rpt-cp-zona">${s.zona || '&nbsp;'}</div>
+            </div>
+            <div class="rpt-cp-volume">
+              <div class="rpt-cp-vol-bar"><div class="rpt-cp-vol-fill" style="width:${Math.round((s.encuestas/maxEnc)*100)}%"></div></div>
+              <div class="rpt-cp-vol-stats">
+                <span class="rpt-cp-vol-n">${s.encuestas}</span>
+                <span class="rpt-cp-vol-l">encuestas · ${s.pdvs} PDVs</span>
+              </div>
+            </div>
+            <div class="rpt-cp-forms">
+              ${formsData.map(f => {
+                const v = s.por[f.key];
+                const empty = !v;
+                const c = rptFormColor(f.key);
+                const ci = rptFormInk(f.key);
+                return `<div class="rpt-cp-form ${empty ? 'rpt-cp-form-empty' : ''}"
+                  style="background:${empty ? '' : `color-mix(in oklab,${c} 12%,white)`};border:1px solid ${empty ? '' : `color-mix(in oklab,${c} 30%,#e3dcc9)`}">
+                  <span class="rpt-cp-form-name" style="color:${empty ? '' : ci}">${f.nombre.split(' ')[0]}</span>
+                  <span class="rpt-cp-form-val"  style="color:${empty ? '' : ci}">${empty ? '—' : v}</span>
+                </div>`;
+              }).join('')}
+            </div>
+            <div class="rpt-cp-cierre">
+              <div class="rpt-cp-pct rpt-pct-${sc}">${s.pct}<small>%</small></div>
+              <div class="rpt-cp-forms-l">${s.completadas}/${formsData.length} forms</div>
+              <div class="rpt-cp-tag rpt-tag-${sc}">${rptStatusLabel(s.pct)}</div>
+            </div>
+          </article>`;
+        }).join('')}
+      </div>
+    </div>
+    ${pageFoot(p2)}
+  </section>`;
+
+  // ── DETALLES POR SUPERVISOR ──────────────────────────────────
+  supervisores.forEach(s => {
+    const pn   = pageNum();
+    const sc   = rptStatusColor(s.pct);
+    const pendList = formsData.filter(f => s.forms[f.key].status === 'pendiente').map(f => f.nombre);
+
+    const formBlocks = formsData.map(f => {
+      const block  = s.forms[f.key];
+      const isPend = block.status === 'pendiente';
+      const c  = rptFormColor(f.key);
+      const cs = rptFormSoft(f.key);
+      const ci = rptFormInk(f.key);
+      const mx = isPend ? 1 : Math.max(1, ...block.items.map(it => it.n));
+
+      return `<article class="rpt-fb ${isPend ? 'rpt-fb-pend' : ''}">
+        <header class="rpt-fb-head">
+          <div class="rpt-fb-name">
+            <span class="rpt-fb-dot" style="background:${c}"></span>
+            <div>
+              <div class="rpt-fb-title" style="color:${ci}">${f.nombre}</div>
+              ${f.sub ? `<div class="rpt-fb-sub">${f.sub}</div>` : ''}
+            </div>
+          </div>
+          ${isPend
+            ? `<span class="rpt-fb-tag rpt-fb-tag-pend">Pendiente</span>`
+            : `<span class="rpt-fb-tag rpt-fb-tag-ok" style="background:${cs};color:${ci}">Completado</span>`}
+        </header>
+        ${isPend
+          ? `<div class="rpt-fb-empty">Sin registros en el periodo filtrado</div>`
+          : `<div class="rpt-fb-meta" style="color:var(--rpt-dim)">
+              <span><strong style="color:${ci}">${block.registros}</strong> registro${block.registros!==1?'s':''}</span>
+              <span>·</span>
+              <span><strong style="color:${ci}">${block.pdvs}</strong> PDV${block.pdvs!==1?'s':''}</span>
+            </div>
+            <ul class="rpt-fb-list">
+              ${block.items.map(it => `<li>
+                <span class="rpt-fb-pdv">${it.pdv}</span>
+                <span class="rpt-fb-bar" style="background:color-mix(in oklab,${c} 12%,#f6f1e6)">
+                  <span class="rpt-fb-bar-fill" style="width:${Math.round((it.n/mx)*100)}%;background:${c}"></span>
+                </span>
+                <span class="rpt-fb-n" style="color:${ci}">${it.n}<small>×</small></span>
+              </li>`).join('')}
+            </ul>`}
+      </article>`;
+    }).join('');
+
+    pages += `
+  <section class="rpt-page" data-pg="${pn}">
+    <div class="rpt-page-inner">
+      <header class="rpt-sd-head">
+        <div>
+          <div class="rpt-sd-eyebrow">DETALLE POR SUPERVISOR</div>
+          <h2 class="rpt-sd-name">${s.name}</h2>
+          ${s.zona ? `<div class="rpt-sd-zona">${s.zona}</div>` : ''}
+        </div>
+        <div class="rpt-sd-pct rpt-sdp-${sc}">
+          <div class="rpt-sd-pct-n">${s.pct}<small>%</small></div>
+          <div class="rpt-sd-pct-lbl">${rptStatusLabel(s.pct)}</div>
+        </div>
+      </header>
+      <div class="rpt-sd-kpis">
+        <div class="rpt-sd-kpi"><span class="rpt-sd-kpi-n">${s.encuestas.toLocaleString('es-PY')}</span><span class="rpt-sd-kpi-l">Encuestas</span></div>
+        <div class="rpt-sd-kpi"><span class="rpt-sd-kpi-n">${s.pdvs}</span><span class="rpt-sd-kpi-l">PDVs únicos</span></div>
+        <div class="rpt-sd-kpi"><span class="rpt-sd-kpi-n">${s.completadas}<small>/${formsData.length}</small></span><span class="rpt-sd-kpi-l">Formularios completos</span></div>
+        <div class="rpt-sd-kpi"><span class="rpt-sd-kpi-n">${s.pendientes}</span><span class="rpt-sd-kpi-l">Pendientes</span></div>
+      </div>
+      <div class="rpt-sd-forms">${formBlocks}</div>
+      ${pendList.length > 0 ? `<div class="rpt-sd-note">
+        <span class="rpt-sd-note-lbl">Pendientes</span>
+        <span class="rpt-sd-note-text">${pendList.join(' · ')}</span>
+      </div>` : ''}
+    </div>
+    ${pageFoot(pn)}
+  </section>`;
+  });
+
+  // ── CIERRE ───────────────────────────────────────────────────
+  const pClose = pageNum();
+  pages += `
+  <section class="rpt-page rpt-page-dark" data-pg="${pClose}">
+    <div class="rpt-cover">
+      <div class="rpt-cover-bar"></div>
+      <header class="rpt-cover-head">${markaLg}</header>
+      <div class="rpt-cover-body">
+        <p class="rpt-close-eyebrow">REPORTE GENERADO · ${new Date().toLocaleDateString('es-PY').toUpperCase()}</p>
+        <h1 class="rpt-cover-title">HACEMOS QUE TU<br>MARCA SEA <span class="rpt-plus-h">+</span></h1>
+        <div class="rpt-close-grid">
+          <div><div class="rpt-close-l">Encuestas</div><div class="rpt-close-v">${totalEnc.toLocaleString('es-PY')}</div></div>
+          <div><div class="rpt-close-l">Puntos de venta</div><div class="rpt-close-v">${totalPdvs}</div></div>
+          <div><div class="rpt-close-l">Supervisores</div><div class="rpt-close-v">${totalSups}</div></div>
+          <div><div class="rpt-close-l">Formularios</div><div class="rpt-close-v">${formsData.length}</div></div>
+        </div>
+      </div>
+      <footer class="rpt-cover-foot">
+        <span>VISIBILIDAD</span><span class="rpt-foot-sep">·</span>
+        <span>VENTAS</span><span class="rpt-foot-sep">·</span>
+        <span>MARCA</span>
+      </footer>
+    </div>
+  </section>`;
+
+  // ── Renderizar y abrir ───────────────────────────────────────
+  doc.innerHTML = pages;
+  overlay.classList.add('open');
+  overlay.scrollTop = 0;
+  document.body.style.overflow = 'hidden';
+}
+
+function closeReporteEjecutivo() {
+  document.getElementById('reporteOverlay').classList.remove('open');
+  document.body.style.overflow = '';
+}
 </script>
 </body>
 </html>
