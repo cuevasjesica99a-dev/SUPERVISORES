@@ -3,14 +3,12 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Dashboard de Visitas · Field Intelligence</title>
+<title>+MARKA · Tablero de Campo</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700;800&family=Inter:wght@300;400;500&display=swap" rel="stylesheet" />
 <!-- Chart.js -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <!-- SheetJS para leer archivos Excel -->
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-<!-- PptxGenJS para generar presentaciones PowerPoint -->
-<script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.11.0/dist/pptxgen.bundle.js"></script>
 <!-- jsPDF para generar reportes PDF A4 -->
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <style>
@@ -507,13 +505,6 @@
     width: 28px; text-align: right; flex-shrink: 0;
   }
 
-  /* ─── EXPORT BUTTON ─────────────────────────────────────── */
-  .btn-export {
-    background: linear-gradient(135deg, #CC1111 0%, #991111 100%);
-    color: #fff !important;
-    border: none !important;
-  }
-  .btn-export:hover { filter: brightness(1.2); transform: translateY(-1px); }
   .btn-pdf {
     background: linear-gradient(135deg, #1a5fa8 0%, #0d3d70 100%);
     color: #fff !important;
@@ -847,10 +838,10 @@
   <!-- HEADER -->
   <header>
     <div class="logo">
-      <div class="logo-icon">📊</div>
+      <div class="logo-icon">+</div>
       <div>
-        <div class="logo-text">Field Intelligence</div>
-        <div class="logo-sub">Dashboard de Encuestas</div>
+        <div class="logo-text">MARKA</div>
+        <div class="logo-sub">Tablero de Campo</div>
       </div>
     </div>
     <div class="header-right">
@@ -858,11 +849,8 @@
         <span class="status-dot" id="statusDot"></span>
         <span id="lastUpdate">Sin datos cargados</span>
       </span>
-      <button class="btn btn-export" id="btnExportPpt" onclick="exportPPT()" style="display:none">
-        📊 Exportar PPT
-      </button>
       <button class="btn btn-pdf" id="btnExportPdf" onclick="exportPDF()" style="display:none">
-        📄 Exportar PDF
+        📄 Exportar Reporte PDF
       </button>
       <button class="btn btn-ghost" onclick="clearAll()">🗑 Limpiar todo</button>
     </div>
@@ -1260,7 +1248,6 @@ async function processAllFiles() {
   updateLastUpdate();
   document.getElementById('dashboardContent').classList.add('visible');
   document.getElementById('statusDot').classList.add('live');
-  document.getElementById('btnExportPpt').style.display = 'inline-flex';
   document.getElementById('btnExportPdf').style.display = 'inline-flex';
 
   // Scroll suave al dashboard
@@ -1977,12 +1964,13 @@ function normalizeEncName(str) {
 }
 
 /* ════════════════════════════════════════════════════════════
-   EXPORTAR PDF — Reporte A4 vertical
+   EXPORTAR PDF — Formato MARKA A4 vertical
+   Estilo: fondo crema #F5F0E8, tipografía oscura, layout 2 columnas
    Secciones:
-     1. Portada
-     2. Resumen general (KPIs + tabla de supervisores)
-     3. Detalle por supervisor: formularios completados/pendientes
-        con todos los PDVs, paginando automáticamente
+     P1: Portada
+     P2: Resumen de cobertura (tabla supervisores)
+     P3+: Detalle por supervisor (una página por sup, pagina automático)
+     PFin: Cierre
 ════════════════════════════════════════════════════════════ */
 async function exportPDF() {
   if (!filtered.length) { showAlert('No hay datos para exportar.'); return; }
@@ -1992,967 +1980,584 @@ async function exportPDF() {
   btn.disabled = true;
 
   try {
-    await new Promise(r => setTimeout(r, 40)); // let UI update
+    await new Promise(r => setTimeout(r, 50));
 
     const { jsPDF } = window.jspdf;
-    if (!jsPDF) { showAlert('La librería jsPDF no se cargó. Verificá tu conexión.'); return; }
+    if (!jsPDF) { showAlert('jsPDF no se cargó. Verificá tu conexión.'); return; }
 
     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
 
-    // ── A4 dimensions ─────────────────────────────────────
-    const PW  = 210;   // page width mm
-    const PH  = 297;   // page height mm
-    const ML  = 14;    // margin left
-    const MR  = 14;    // margin right
-    const MT  = 14;    // margin top
-    const MB  = 12;    // margin bottom
-    const CW  = PW - ML - MR;  // content width
+    /* ── Dimensiones A4 ────────────────────────────────────── */
+    const PW = 210, PH = 297;
+    const ML = 14, MR = 14, MT = 16, MB = 14;
+    const CW = PW - ML - MR;   // 182mm
 
-    // ── Color palette (RGB arrays) ─────────────────────────
-    const COL = {
-      bg:      [18,  18,  24],
-      surface: [26,  28,  34],
-      surface2:[40,  44,  52],
-      red:     [204, 17,  17],
-      green:   [0,   180, 100],
-      greenDk: [0,   80,  40],
-      blue:    [0,   151, 255],
-      yellow:  [255, 192, 0],
-      white:   [232, 237, 245],
-      gray:    [139, 149, 168],
-      gray2:   [68,  72,  80],
-      black:   [10,  12,  16],
+    /* ── Paleta MARKA (fondo crema, texto oscuro) ──────────── */
+    const C = {
+      bg:      [245, 240, 232],  // crema principal
+      bg2:     [238, 232, 220],  // crema oscura (filas alternas)
+      surface: [255, 255, 255],  // blanco para cards
+      border:  [210, 200, 185],  // borde suave
+      red:     [190, 30,  30 ],  // rojo marka
+      redLt:   [255, 235, 235],  // rojo claro fondo
+      green:   [40,  140, 80 ],  // verde completado
+      greenLt: [220, 245, 230],  // verde claro fondo
+      amber:   [180, 120, 0  ],  // amarillo/ámbar
+      amberLt: [255, 245, 210],  // ámbar claro
+      orange:  [200, 80,  0  ],  // naranja crítico
+      orLt:    [255, 235, 215],
+      dark:    [30,  28,  26 ],  // texto principal
+      mid:     [90,  85,  75 ],  // texto secundario
+      light:   [150, 140, 125],  // texto terciario
+      rule:    [195, 185, 170],  // líneas divisoras
     };
 
-    // ── Page state ─────────────────────────────────────────
+    /* ── Estado de páginas ─────────────────────────────────── */
     let pageNum = 0;
 
     function newPage() {
       if (pageNum > 0) doc.addPage();
       pageNum++;
-      // Full dark background
-      doc.setFillColor(...COL.bg);
+      // Fondo crema
+      doc.setFillColor(...C.bg);
       doc.rect(0, 0, PW, PH, 'F');
-      // Left red accent bar
-      doc.setFillColor(...COL.red);
-      doc.rect(0, 0, 3, PH, 'F');
+      // Línea roja izquierda delgada
+      doc.setFillColor(...C.red);
+      doc.rect(0, 0, 2.5, PH, 'F');
       // Footer
-      doc.setFontSize(7);
-      doc.setTextColor(...COL.gray2);
+      doc.setFontSize(6.5);
+      doc.setTextColor(...C.light);
       doc.setFont('helvetica', 'normal');
-      doc.text('PARESA · RELEVAMIENTO DE CAMPO', PW / 2, PH - 5, { align: 'center' });
-      doc.text(`Pág. ${pageNum}`, PW - MR, PH - 5, { align: 'right' });
-      return MT; // return starting Y
+      const today = new Date();
+      const mo = today.toLocaleDateString('es-PY',{month:'long',year:'numeric'}).toUpperCase();
+      doc.text(`+MARKA · RELEVAMIENTO DE CAMPO · ${mo}`, PW / 2, PH - 5, { align: 'center' });
+      doc.text(`${pageNum < 10 ? '0' : ''}${pageNum}`, PW - MR, PH - 5, { align: 'right' });
+      return MT;
     }
 
-    // ── Drawing helpers ────────────────────────────────────
-    function txt(text, x, y, size, color, style = 'normal', align = 'left', maxW = null) {
+    /* ── Helpers básicos ───────────────────────────────────── */
+    function setFont(size, color, weight = 'normal') {
       doc.setFontSize(size);
       doc.setTextColor(...color);
-      doc.setFont('helvetica', style);
+      doc.setFont('helvetica', weight);
+    }
+
+    function txt(text, x, y, size, color, weight = 'normal', align = 'left', maxW = null) {
+      setFont(size, color, weight);
       if (maxW) {
         const lines = doc.splitTextToSize(String(text), maxW);
         doc.text(lines, x, y, { align });
-        return lines.length * size * 0.352 + (lines.length - 1) * 0.5;
+        return lines.length * (size * 0.36);
       }
       doc.text(String(text), x, y, { align });
-      return size * 0.352;
+      return size * 0.36;
     }
 
-    function hline(y, color = COL.gray2, lw = 0.3) {
+    function hRule(y, x1 = ML, x2 = PW - MR, color = C.rule, lw = 0.25) {
       doc.setDrawColor(...color);
       doc.setLineWidth(lw);
-      doc.line(ML, y, PW - MR, y);
+      doc.line(x1, y, x2, y);
     }
 
-    function badge(x, y, w, h, fillRgb, borderRgb, label, textRgb, fontSize = 6) {
-      doc.setFillColor(...fillRgb);
-      doc.setDrawColor(...borderRgb);
-      doc.setLineWidth(0.3);
-      doc.rect(x, y, w, h, 'FD');
-      doc.setFontSize(fontSize);
-      doc.setTextColor(...textRgb);
-      doc.setFont('helvetica', 'bold');
-      doc.text(label, x + w / 2, y + h / 2 + fontSize * 0.176, { align: 'center' });
-    }
-
-    function kpiCard(x, y, w, h, accentRgb, label, value) {
-      doc.setFillColor(...COL.surface);
-      doc.setDrawColor(...COL.surface2);
-      doc.setLineWidth(0.3);
-      doc.rect(x, y, w, h, 'FD');
-      // top accent bar
-      doc.setFillColor(...accentRgb);
-      doc.rect(x, y, w, 0.8, 'F');
-      // value
-      doc.setFontSize(20);
-      doc.setTextColor(...accentRgb);
-      doc.setFont('helvetica', 'bold');
-      doc.text(String(value), x + w / 2, y + h * 0.58, { align: 'center' });
-      // label
-      doc.setFontSize(5.5);
-      doc.setTextColor(...COL.gray);
-      doc.setFont('helvetica', 'normal');
-      doc.text(label, x + w / 2, y + h * 0.82, { align: 'center' });
-    }
-
-    // ── Ensure page break if not enough space ──────────────
-    function checkY(y, need, headerFn) {
-      if (y + need > PH - MB) {
-        const newY = headerFn ? headerFn() : newPage();
-        return newY;
+    function miniBar(x, y, w, h, val, maxVal, color) {
+      doc.setFillColor(...C.bg2);
+      doc.rect(x, y, w, h, 'F');
+      if (maxVal > 0) {
+        doc.setFillColor(...color);
+        doc.rect(x, y, w * Math.min(val / maxVal, 1), h, 'F');
       }
-      return y;
     }
 
-    // ════════════════════════════════════════════════════════
-    // PÁGINA 1: PORTADA
-    // ════════════════════════════════════════════════════════
+    /* pct → color set */
+    function pctColors(pct) {
+      if (pct >= 100) return { fg: C.green,  bg: C.greenLt, label: 'COMPLETO'   };
+      if (pct >= 80)  return { fg: C.amber,  bg: C.amberLt, label: 'CASI AL DÍA'};
+      if (pct >= 60)  return { fg: C.amber,  bg: C.amberLt, label: 'ATRASADO'   };
+      if (pct >= 40)  return { fg: C.orange, bg: C.orLt,    label: 'CRÍTICO'    };
+      return              { fg: C.red,    bg: C.redLt,   label: 'CRÍTICO'    };
+    }
+
+    /* ════════════════════════════════════════════════════════
+       PÁGINA 1: PORTADA
+    ════════════════════════════════════════════════════════ */
     let y = newPage();
 
-    // Brand label
-    txt('· PARESA ·', PW / 2, y + 10, 8, COL.gray, 'normal', 'center');
+    // "+ MARKA" brand mark
+    setFont(9, C.red, 'bold');
+    doc.text('+ MARKA', ML + 3, y + 6);
 
-    // Main title
-    doc.setFontSize(36);
-    doc.setTextColor(...COL.white);
-    doc.setFont('helvetica', 'bold');
-    doc.text('RELEVAMIENTO', ML + 4, y + 30);
-    doc.text('DE CAMPO', ML + 4, y + 45);
+    // Título principal
+    setFont(44, C.dark, 'bold');
+    doc.text('RELEVAMIENTO', ML + 3, y + 24);
+    doc.text('DE CAMPO', ML + 3, y + 37);
 
-    // Red underline accent
-    doc.setFillColor(...COL.red);
-    doc.rect(ML + 4, y + 48, 60, 1.2, 'F');
+    // Línea roja decorativa bajo título
+    doc.setFillColor(...C.red);
+    doc.rect(ML + 3, y + 40, 72, 1.0, 'F');
 
-    // Date
-    const today = new Date();
-    const monthYear = today.toLocaleDateString('es-PY', { month: 'long', year: 'numeric' }).toUpperCase();
-    txt(monthYear, ML + 4, y + 58, 11, COL.red, 'bold');
+    // Subtítulo
+    setFont(9, C.mid, 'normal');
+    doc.text('SUPERVISIÓN Y RELEVAMIENTO EN PUNTO DE VENTA.', ML + 3, y + 49);
 
-    // Summary stats
-    const totalEnc  = filtered.length;
-    const totalSups = new Set(filtered.map(r => r.empleado)).size;
-    const totalPdvs = new Set(filtered.map(r => r.pdv)).size;
-    const totalForms = new Set(filtered.map(r => r.formulario)).size;
+    // Mes
+    const today2 = new Date();
+    const mesAnio = today2.toLocaleDateString('es-PY',{month:'long',year:'numeric'}).toUpperCase();
+    setFont(11, C.red, 'bold');
+    doc.text(mesAnio, ML + 3, y + 58);
 
-    txt(`${totalEnc} encuestas  ·  ${totalSups} supervisores  ·  ${totalPdvs} puntos de venta`, ML + 4, y + 67, 8.5, COL.gray);
+    // Tagline inferior
+    setFont(7, C.light, 'normal');
+    doc.text('V I S I B I L I D A D  ·  V E N T A S  ·  M A R C A', ML + 3, y + 67);
 
-    // KPI cards (4 across)
-    const kY = y + 80;
-    const kW = (CW - 9) / 4;
-    const kH = 22;
-    kpiCard(ML,                  kY, kW, kH, COL.white,  'ENCUESTAS',       totalEnc);
-    kpiCard(ML + kW + 3,         kY, kW, kH, COL.blue,   'SUPERVISORES',    totalSups);
-    kpiCard(ML + (kW + 3) * 2,   kY, kW, kH, COL.green,  'FORMULARIOS',     totalForms);
-    kpiCard(ML + (kW + 3) * 3,   kY, kW, kH, COL.red,    'PDVs VISITADOS',  totalPdvs);
-
-    // Generation date
-    txt(`Generado: ${new Date().toLocaleDateString('es-PY')} ${new Date().toLocaleTimeString('es-PY', {hour:'2-digit',minute:'2-digit'})}`,
-      PW - MR, PH - 22, 7, COL.gray2, 'normal', 'right');
-
-    // ════════════════════════════════════════════════════════
-    // PÁGINA 2: RESUMEN DE SUPERVISORES (tabla)
-    // ════════════════════════════════════════════════════════
-    y = newPage();
-
-    txt('RESUMEN DE COBERTURA', ML, y + 2, 7, COL.gray, 'normal');
-    y += 7;
-    doc.setFontSize(16);
-    doc.setTextColor(...COL.white);
-    doc.setFont('helvetica', 'bold');
-    doc.text('CUMPLIMIENTO POR SUPERVISOR', ML, y + 6);
-    y += 12;
-    hline(y, COL.gray2, 0.4);
-    y += 4;
-
-    // Table header
-    const cols = { name: 70, enc: 22, pdv: 22, done: 25, pend: 22, pct: 17 };
-    const rowH = 7;
-    const headerH = 8;
-
-    // Header bg
-    doc.setFillColor(...COL.surface2);
-    doc.rect(ML, y, CW, headerH, 'F');
-
-    doc.setFontSize(6);
-    doc.setTextColor(...COL.gray);
-    doc.setFont('helvetica', 'bold');
-    let cx = ML + 2;
-    doc.text('SUPERVISOR',    cx, y + 5.5); cx += cols.name;
-    doc.text('ENCUESTAS',     cx, y + 5.5); cx += cols.enc;
-    doc.text('PDVs',          cx, y + 5.5); cx += cols.pdv;
-    doc.text('COMPLETADAS',   cx, y + 5.5); cx += cols.done;
-    doc.text('PENDIENTES',    cx, y + 5.5); cx += cols.pend;
-    doc.text('%',             cx, y + 5.5);
-    y += headerH;
-
-    const supervisors = [...new Set(filtered.map(r => r.empleado))].sort();
-    let rowAlt = false;
-
-    supervisors.forEach(sup => {
-      // auto page break
-      if (y + rowH > PH - MB) {
-        y = newPage();
-        // re-draw table header after page break
-        doc.setFillColor(...COL.surface2);
-        doc.rect(ML, y, CW, headerH, 'F');
-        doc.setFontSize(6);
-        doc.setTextColor(...COL.gray);
-        doc.setFont('helvetica', 'bold');
-        let hx = ML + 2;
-        doc.text('SUPERVISOR',  hx, y + 5.5); hx += cols.name;
-        doc.text('ENCUESTAS',   hx, y + 5.5); hx += cols.enc;
-        doc.text('PDVs',        hx, y + 5.5); hx += cols.pdv;
-        doc.text('COMPLETADAS', hx, y + 5.5); hx += cols.done;
-        doc.text('PENDIENTES',  hx, y + 5.5); hx += cols.pend;
-        doc.text('%',           hx, y + 5.5);
-        y += headerH;
-        rowAlt = false;
-      }
-
-      const supData  = filtered.filter(r => r.empleado === sup);
-      const pdvCount = new Set(supData.map(r => r.pdv)).size;
-      const done     = ENCUESTAS_REQUERIDAS.filter(enc =>
-        supData.some(r => normalizeEncName(r.formulario) === normalizeEncName(enc))
-      ).length;
-      const pending  = ENCUESTAS_REQUERIDAS.length - done;
-      const pct      = Math.round((done / ENCUESTAS_REQUERIDAS.length) * 100);
-      const pctCol   = pct >= 80 ? COL.green : pct >= 40 ? COL.yellow : COL.red;
-
-      // Row background
-      if (rowAlt) {
-        doc.setFillColor(22, 25, 32);
-        doc.rect(ML, y, CW, rowH, 'F');
-      }
-
-      doc.setFontSize(7);
-      doc.setFont('helvetica', 'normal');
-      let rx = ML + 2;
-
-      // Name (truncated)
-      doc.setTextColor(...COL.white);
-      const supLabel = doc.splitTextToSize(sup, cols.name - 3)[0];
-      doc.text(supLabel, rx, y + 5); rx += cols.name;
-
-      doc.setTextColor(...COL.gray);
-      doc.text(String(supData.length), rx + cols.enc / 2 - 2, y + 5); rx += cols.enc;
-      doc.text(String(pdvCount),       rx + cols.pdv / 2 - 2, y + 5); rx += cols.pdv;
-
-      doc.setTextColor(...COL.green);
-      doc.setFont('helvetica', 'bold');
-      doc.text(String(done), rx + cols.done / 2 - 2, y + 5); rx += cols.done;
-
-      doc.setTextColor(pending > 0 ? COL.red[0] : COL.gray[0],
-                       pending > 0 ? COL.red[1] : COL.gray[1],
-                       pending > 0 ? COL.red[2] : COL.gray[2]);
-      doc.text(String(pending), rx + cols.pend / 2 - 2, y + 5); rx += cols.pend;
-
-      doc.setTextColor(...pctCol);
-      doc.text(`${pct}%`, rx + 2, y + 5);
-
-      // Row divider
-      doc.setDrawColor(...COL.surface2);
-      doc.setLineWidth(0.2);
-      doc.line(ML, y + rowH, PW - MR, y + rowH);
-
-      y += rowH;
-      rowAlt = !rowAlt;
+    // KPIs en 4 recuadros
+    const totalEnc   = filtered.length;
+    const totalSups  = new Set(filtered.map(r => r.empleado)).size;
+    const totalPdvs  = new Set(filtered.map(r => r.pdv)).size;
+    const totalForms = ENCUESTAS_REQUERIDAS.length;
+    const kpis = [
+      { label: 'E N C U E S T A S',  val: totalEnc   },
+      { label: 'P U N T O S D E V E N T A', val: totalPdvs   },
+      { label: 'S U P E R V I S O R E S', val: totalSups  },
+      { label: 'F O R M U L A R I O S',   val: totalForms },
+    ];
+    const kW = (CW - 9) / 4, kH = 22, kY = y + 78;
+    kpis.forEach((k, i) => {
+      const kx = ML + i * (kW + 3);
+      doc.setFillColor(...C.surface);
+      doc.setDrawColor(...C.border);
+      doc.setLineWidth(0.3);
+      doc.rect(kx, kY, kW, kH, 'FD');
+      setFont(20, C.dark, 'bold');
+      doc.text(String(k.val), kx + kW / 2, kY + 11, { align: 'center' });
+      setFont(5.5, C.light, 'normal');
+      doc.text(k.label, kx + kW / 2, kY + 17, { align: 'center' });
     });
 
-    // ════════════════════════════════════════════════════════
-    // PÁGINAS SIGUIENTES: DETALLE POR SUPERVISOR
-    // ════════════════════════════════════════════════════════
-    for (const supName of supervisors) {
-      const supData  = filtered.filter(r => r.empleado === supName);
-      const pdvCount = new Set(supData.map(r => r.pdv)).size;
+    /* ════════════════════════════════════════════════════════
+       PÁGINA 2: CUMPLIMIENTO POR SUPERVISOR
+    ════════════════════════════════════════════════════════ */
+    y = newPage();
+
+    // Encabezado sección
+    setFont(7, C.mid, 'normal');
+    doc.text('C U M P L I M I E N T O', ML + 3, y + 2);
+    setFont(18, C.dark, 'bold');
+    doc.text('CUMPLIMIENTO POR SUPERVISOR', ML + 3, y + 10);
+    setFont(8, C.mid, 'normal');
+    const supList2 = [...new Set(filtered.map(r => r.empleado))].sort();
+    const doneAll = supList2.filter(s => {
+      const sd = filtered.filter(r => r.empleado === s);
+      return ENCUESTAS_REQUERIDAS.every(e => sd.some(r => normalizeEncName(r.formulario) === normalizeEncName(e)));
+    }).length;
+    const part60 = supList2.filter(s => {
+      const sd = filtered.filter(r => r.empleado === s);
+      const d = ENCUESTAS_REQUERIDAS.filter(e => sd.some(r => normalizeEncName(r.formulario) === normalizeEncName(e))).length;
+      const p = d / ENCUESTAS_REQUERIDAS.length * 100;
+      return p >= 60 && p < 100;
+    }).length;
+    const critical = supList2.length - doneAll - part60;
+    doc.text(`${totalEnc} encuestas · ${totalSups} supervisores · ${totalForms} formularios. Ordenados de mayor a menor volumen.`, ML + 3, y + 16);
+
+    // Badges resumen
+    const bY = y + 19;
+    function summaryBadge(bx, by, fg, bg, count, label) {
+      doc.setFillColor(...bg);
+      doc.setDrawColor(...fg);
+      doc.setLineWidth(0.4);
+      doc.rect(bx, by, 36, 7, 'FD');
+      setFont(7.5, fg, 'bold');
+      doc.text(`${count} ${label}`, bx + 18, by + 4.8, { align: 'center' });
+    }
+    summaryBadge(ML + 3,  bY, C.green,  C.greenLt, doneAll,  'AL 100%');
+    summaryBadge(ML + 41, bY, C.amber,  C.amberLt, part60,   '60–80%');
+    summaryBadge(ML + 79, bY, C.red,    C.redLt,   critical, '≤ 40%');
+
+    // Mini totals by encuesta
+    const encTotals = ENCUESTAS_REQUERIDAS.map(e => ({
+      enc: e,
+      count: filtered.filter(r => normalizeEncName(r.formulario) === normalizeEncName(e)).length
+    }));
+    let etX = ML + 3;
+    const etY = bY + 10;
+    encTotals.forEach((et, i) => {
+      const label = et.enc.split(' - ')[0].split(' ')[0]; // short name
+      setFont(6, C.mid, 'bold');
+      doc.text(label.toUpperCase(), etX, etY);
+      setFont(8, C.dark, 'bold');
+      doc.text(String(et.count), etX, etY + 5);
+      etX += (CW - 3) / encTotals.length;
+    });
+
+    y = bY + 20;
+    hRule(y, ML + 3, PW - MR, C.rule, 0.4);
+    y += 4;
+
+    /* ── Tabla de supervisores ─────────────────────────────── */
+    // Calcular max encuestas para barras
+    const supStats = supList2.map(sup => {
+      const sd   = filtered.filter(r => r.empleado === sup);
+      const pdvC = new Set(sd.map(r => r.pdv)).size;
+      const encByForm = ENCUESTAS_REQUERIDAS.map(e => ({
+        name: e.split(' - ')[0],
+        count: sd.filter(r => normalizeEncName(r.formulario) === normalizeEncName(e)).length
+      }));
+      const done = encByForm.filter(e => e.count > 0).length;
+      const pct  = Math.round(done / ENCUESTAS_REQUERIDAS.length * 100);
+      return { sup, total: sd.length, pdvC, encByForm, done, pct };
+    }).sort((a, b) => b.total - a.total);
+
+    const maxTotal = supStats[0]?.total || 1;
+    const ROW_H = 16;
+
+    supStats.forEach((s, idx) => {
+      if (y + ROW_H + 2 > PH - MB) {
+        y = newPage();
+        setFont(7, C.mid, 'normal');
+        doc.text('CUMPLIMIENTO POR SUPERVISOR (continuación)', ML + 3, y + 4);
+        y += 8;
+        hRule(y, ML + 3, PW - MR, C.rule, 0.3);
+        y += 3;
+      }
+
+      const rowBg = idx % 2 === 0 ? C.surface : C.bg;
+      doc.setFillColor(...rowBg);
+      doc.rect(ML + 3, y, CW - 3, ROW_H, 'F');
+
+      const col = pctColors(s.pct);
+
+      // Número de orden
+      setFont(7, C.light, 'normal');
+      doc.text(String(idx + 1).padStart(2, '0'), ML + 4, y + 6);
+
+      // Nombre del supervisor
+      const nameLines = doc.splitTextToSize(s.sup.toUpperCase(), 48);
+      setFont(8.5, C.dark, 'bold');
+      doc.text(nameLines[0], ML + 12, y + 6);
+      if (nameLines[1]) { setFont(7, C.dark, 'normal'); doc.text(nameLines[1], ML + 12, y + 10.5); }
+
+      // Total + PDVs
+      setFont(7, C.mid, 'normal');
+      doc.text(`${s.total} ENC · ${s.pdvC} PDVs`, ML + 12, y + 13.5);
+
+      // Mini bars per encuesta
+      const barStartX = ML + 64;
+      const barW = 16;
+      const barGap = 1.5;
+      s.encByForm.forEach((ef, fi) => {
+        const bx = barStartX + fi * (barW + barGap);
+        const color = ef.count > 0 ? C.green : C.red;
+        setFont(6, ef.count > 0 ? C.green : C.red, 'bold');
+        // Truncate form name
+        const fname = ef.name.length > 7 ? ef.name.slice(0, 6) + '…' : ef.name;
+        doc.text(fname, bx + barW / 2, y + 4.5, { align: 'center' });
+        setFont(8, ef.count > 0 ? C.green : C.red, 'bold');
+        const valTxt = ef.count > 0 ? String(ef.count) : '—';
+        doc.text(valTxt, bx + barW / 2, y + 10, { align: 'center' });
+        // thin bottom indicator bar
+        doc.setFillColor(...(ef.count > 0 ? C.green : C.red));
+        doc.rect(bx, y + ROW_H - 1.5, barW, 1.2, 'F');
+      });
+
+      // PCT badge
+      const pBadgeX = PW - MR - 20;
+      doc.setFillColor(...col.bg);
+      doc.setDrawColor(...col.fg);
+      doc.setLineWidth(0.4);
+      doc.rect(pBadgeX, y + 2, 18, 12, 'FD');
+      setFont(13, col.fg, 'bold');
+      doc.text(`${s.pct}%`, pBadgeX + 9, y + 9, { align: 'center' });
+      setFont(5, col.fg, 'bold');
+      doc.text(col.label, pBadgeX + 9, y + 12.5, { align: 'center' });
+
+      // Row divider
+      hRule(y + ROW_H, ML + 3, PW - MR, C.rule, 0.15);
+      y += ROW_H + 0.5;
+    });
+
+    /* ════════════════════════════════════════════════════════
+       PÁGINAS DETALLE POR SUPERVISOR
+       Layout: 2 columnas de formularios, todos los PDVs
+    ════════════════════════════════════════════════════════ */
+    for (const s of supStats) {
+      const supData  = filtered.filter(r => r.empleado === s.sup);
+      const pdvUniq  = new Set(supData.map(r => r.pdv)).size;
+      const col      = pctColors(s.pct);
 
       const encStatus = ENCUESTAS_REQUERIDAS.map(enc => {
-        const matches = supData.filter(r =>
-          normalizeEncName(r.formulario) === normalizeEncName(enc)
-        );
-        const done = matches.length > 0;
+        const matches = supData.filter(r => normalizeEncName(r.formulario) === normalizeEncName(enc));
+        const done    = matches.length > 0;
         const pdvCounts = {};
         matches.forEach(r => { pdvCounts[r.pdv] = (pdvCounts[r.pdv] || 0) + 1; });
         const pdvList = Object.entries(pdvCounts).sort((a, b) => b[1] - a[1]);
         return { enc, done, count: matches.length, pdvList };
       });
 
-      const doneCount = encStatus.filter(e => e.done).length;
-      const pct       = Math.round((doneCount / ENCUESTAS_REQUERIDAS.length) * 100);
-      const pctCol    = pct >= 80 ? COL.green : pct >= 40 ? COL.yellow : COL.red;
+      const pendingList = encStatus.filter(e => !e.done).map(e => e.enc.split(' - ')[0]);
 
-      // ── Sup page header helper ────────────────────────────
-      function supPageHeader(isFirst) {
+      /* ── Función para dibujar encabezado de página de sup ── */
+      function supHeader(isFirst) {
         let py = newPage();
-        txt('DETALLE — SUPERVISOR', ML, py + 2, 7, COL.gray, 'normal');
-        py += 7;
-        doc.setFontSize(15);
-        doc.setTextColor(...COL.white);
-        doc.setFont('helvetica', 'bold');
-        const lines = doc.splitTextToSize(supName.toUpperCase(), CW - 55);
-        doc.text(lines, ML, py + 5);
-        const nameH = lines.length * 15 * 0.352;
+
+        // Label sección
+        setFont(6.5, C.light, 'normal');
+        doc.text('D E T A L L E   P O R   S U P E R V I S O R', ML + 3, py + 3);
+        py += 6;
+
+        // Nombre supervisor grande
+        const nameLines = doc.splitTextToSize(s.sup.toUpperCase(), CW - 28);
+        setFont(nameLines[0].length > 22 ? 22 : 28, C.dark, 'bold');
+        doc.text(nameLines[0], ML + 3, py + 10);
+        let nameH = 13;
+        if (nameLines[1]) {
+          setFont(20, C.dark, 'bold');
+          doc.text(nameLines[1], ML + 3, py + 20);
+          nameH = 23;
+        }
+
+        // Badge % arriba derecha
+        const bW = 28, bH = 16;
+        const bX = PW - MR - bW, bY2 = py;
+        doc.setFillColor(...C.surface);
+        doc.setDrawColor(...col.fg);
+        doc.setLineWidth(0.6);
+        doc.rect(bX, bY2, bW, bH, 'FD');
+        setFont(16, col.fg, 'bold');
+        doc.text(`${s.pct}%`, bX + bW / 2, bY2 + 8, { align: 'center' });
+        setFont(5.5, col.fg, 'normal');
+        doc.text(col.label, bX + bW / 2, bY2 + 13.5, { align: 'center' });
+
+        py += nameH + 2;
+
+        if (!isFirst) {
+          setFont(7, C.light, 'italic');
+          doc.text('(continuación)', ML + 3, py);
+          py += 5;
+        }
+
+        hRule(py, ML + 3, PW - MR, C.rule, 0.5);
+        py += 4;
 
         if (isFirst) {
-          // Stats boxes top-right
-          const bx = PW - MR - 50;
-          const by = py - 1;
-          // Encuestas box
-          doc.setFillColor(...COL.surface);
-          doc.setDrawColor(...COL.gray2);
-          doc.setLineWidth(0.3);
-          doc.rect(bx, by, 23, 12, 'FD');
-          txt(String(supData.length), bx + 11.5, by + 6, 11, COL.white, 'bold', 'center');
-          txt('ENCUESTAS', bx + 11.5, by + 10.5, 5, COL.gray, 'normal', 'center');
-          // PDVs box
-          doc.setFillColor(...COL.surface);
-          doc.setDrawColor(...COL.blue);
-          doc.setLineWidth(0.4);
-          doc.rect(bx + 25, by, 23, 12, 'FD');
-          txt(String(pdvCount), bx + 36.5, by + 6, 11, COL.blue, 'bold', 'center');
-          txt('PDVs', bx + 36.5, by + 10.5, 5, COL.blue, 'normal', 'center');
-          // % badge
-          doc.setFillColor(pctCol[0], pctCol[1], pctCol[2], 0.15);
-          doc.setFillColor(Math.min(255, pctCol[0] + 180),
-                           Math.min(255, pctCol[1] + 180),
-                           Math.min(255, pctCol[2] + 180));
-          doc.setFillColor(COL.surface[0], COL.surface[1], COL.surface[2]);
-          doc.setDrawColor(...pctCol);
-          doc.setLineWidth(0.4);
-          doc.rect(bx, by + 14, 48, 7, 'FD');
-          txt(`${doneCount}/${ENCUESTAS_REQUERIDAS.length} formularios · ${pct}% completado`,
-            bx + 24, by + 19, 5.5, pctCol, 'bold', 'center');
-        } else {
-          txt('(continuación)', PW - MR, py + 4, 7, COL.gray2, 'normal', 'right');
+          // 4 KPI mini-cards
+          const kW2 = (CW - 9) / 4, kH2 = 14;
+          const miniKpis = [
+            { val: s.total,                       label: 'ENCUESTAS'           },
+            { val: pdvUniq,                        label: 'PDVS ÚNICOS'        },
+            { val: `${s.done}/${ENCUESTAS_REQUERIDAS.length}`, label: 'FORMULARIOS COMPLETOS' },
+            { val: ENCUESTAS_REQUERIDAS.length - s.done, label: 'PENDIENTES'  },
+          ];
+          miniKpis.forEach((k, i) => {
+            const kx = ML + 3 + i * (kW2 + 3);
+            doc.setFillColor(...C.surface);
+            doc.setDrawColor(...C.border);
+            doc.setLineWidth(0.25);
+            doc.rect(kx, py, kW2, kH2, 'FD');
+            const vStr = String(k.val);
+            // Split fraction if needed
+            if (vStr.includes('/')) {
+              const [num, den] = vStr.split('/');
+              setFont(16, C.dark, 'bold');
+              doc.text(num, kx + kW2 / 2 - 3, py + 8, { align: 'right' });
+              setFont(9, C.light, 'normal');
+              doc.text('/' + den, kx + kW2 / 2 - 2, py + 8);
+            } else {
+              setFont(16, C.dark, 'bold');
+              doc.text(vStr, kx + kW2 / 2, py + 8.5, { align: 'center' });
+            }
+            setFont(5.5, C.light, 'normal');
+            doc.text(k.label, kx + kW2 / 2, py + 12.5, { align: 'center' });
+          });
+          py += kH2 + 4;
+          hRule(py, ML + 3, PW - MR, C.border, 0.3);
+          py += 4;
         }
 
-        py += Math.max(nameH + 6, 20);
-        hline(py, COL.gray2, 0.4);
-        return py + 4;
+        return py;
       }
 
-      let curY = supPageHeader(true);
-      let isFirst = true;
+      /* ── Renderizar encuestas en 2 columnas ──────────────── */
+      // Pre-calculate card heights
+      const colW2    = (CW - 9) / 2;  // ~86mm each
+      const colGap   = 5;
+      const colXL    = ML + 3;
+      const colXR    = ML + 3 + colW2 + colGap;
+      const PDV_ROW  = 5.2;           // mm per PDV row
+      const CARD_HDR = 13;            // mm for card header (name + sub + badge)
 
-      // ── Draw each encuesta card ────────────────────────────
-      for (const enc of encStatus) {
-        const pdvRows   = enc.done ? enc.pdvList.length : 0;
-        const cardH     = 10 + pdvRows * 5.2;   // header 10mm + 5.2mm per PDV row
-        const minSpace  = 14;                    // minimum space needed to start a card
+      function cardHeight(enc) {
+        if (!enc.done) return CARD_HDR;
+        return CARD_HDR + enc.pdvList.length * PDV_ROW + 2;
+      }
 
-        // Page break if not enough room
-        if (curY + Math.min(cardH, minSpace) > PH - MB) {
-          curY = supPageHeader(false);
-          isFirst = false;
-        }
+      let curY  = supHeader(true);
+      let isFirst2 = true;
+      let col2  = 0; // 0=left, 1=right
+      let colY  = [curY, curY];
 
-        // Card background
-        doc.setFillColor(...COL.surface);
-        doc.setDrawColor(...(enc.done ? COL.greenDk : [58, 10, 10]));
+      function drawCard(enc, cx, cy) {
+        const cH    = cardHeight(enc);
+        const isDone = enc.done;
+        const fg    = isDone ? C.green : C.red;
+        const bg    = isDone ? C.greenLt : C.redLt;
+
+        // Card bg
+        doc.setFillColor(...C.surface);
+        doc.setDrawColor(...C.border);
+        doc.setLineWidth(0.25);
+        doc.rect(cx, cy, colW2, cH, 'FD');
+
+        // Left color bar
+        doc.setFillColor(...fg);
+        doc.rect(cx, cy, 1.5, cH, 'F');
+
+        // Encuesta dot + name
+        doc.setFillColor(...fg);
+        doc.circle(cx + 5, cy + 4.5, 1.5, 'F');
+        setFont(8.5, C.dark, 'bold');
+        const encShort = doc.splitTextToSize(enc.enc, colW2 - 28);
+        doc.text(encShort[0], cx + 8.5, cy + 5.5);
+        if (encShort[1]) { setFont(7, C.dark, 'normal'); doc.text(encShort[1], cx + 8.5, cy + 9.5); }
+
+        // Badge COMPLETADO / PENDIENTE
+        doc.setFillColor(...bg);
+        doc.setDrawColor(...fg);
         doc.setLineWidth(0.3);
-        doc.rect(ML, curY, CW, cardH, 'FD');
-
-        // Left accent bar
-        doc.setFillColor(...(enc.done ? COL.green : COL.red));
-        doc.rect(ML, curY, 1.5, cardH, 'F');
-
-        // Status icon
-        doc.setFontSize(10);
-        doc.setTextColor(...(enc.done ? COL.green : COL.red));
-        doc.setFont('helvetica', 'bold');
-        doc.text(enc.done ? '✓' : '✗', ML + 4, curY + 7);
-
-        // Encuesta name
-        doc.setFontSize(8);
-        doc.setTextColor(...COL.white);
-        doc.setFont('helvetica', 'bold');
-        const encLabel = doc.splitTextToSize(enc.enc, CW - 50);
-        doc.text(encLabel[0], ML + 11, curY + 7);
-
-        // Badge
-        const badgeLabel = enc.done ? 'COMPLETADO' : 'PENDIENTE';
-        const badgeFill  = enc.done ? COL.greenDk : [58, 10, 10];
-        const badgeBord  = enc.done ? COL.green : COL.red;
-        doc.setFillColor(...badgeFill);
-        doc.setDrawColor(...badgeBord);
-        doc.setLineWidth(0.3);
-        doc.rect(PW - MR - 26, curY + 2, 24, 6, 'FD');
-        doc.setFontSize(5.5);
-        doc.setTextColor(...badgeBord);
-        doc.setFont('helvetica', 'bold');
-        doc.text(badgeLabel, PW - MR - 14, curY + 6.2, { align: 'center' });
+        const bW = 20, bH2 = 5.5;
+        doc.rect(cx + colW2 - bW - 1, cy + 1.5, bW, bH2, 'FD');
+        setFont(5.5, fg, 'bold');
+        doc.text(isDone ? 'COMPLETADO' : 'PENDIENTE', cx + colW2 - bW / 2 - 1, cy + 5.2, { align: 'center' });
 
         // Sub-info
-        const subText = enc.done
-          ? `${enc.count} registro${enc.count !== 1 ? 's' : ''} · ${enc.pdvList.length} PDV${enc.pdvList.length !== 1 ? 's' : ''}`
-          : 'Sin registros en el período filtrado';
-        doc.setFontSize(6.5);
-        doc.setTextColor(...COL.gray);
-        doc.setFont('helvetica', 'normal');
-        doc.text(subText, ML + 11, curY + 9.5);
+        setFont(6, C.light, 'normal');
+        const subTxt = isDone
+          ? `${enc.count} REGISTROS  ${enc.pdvList.length} PDVS`
+          : 'SIN REGISTROS EN EL PERIODO FILTRADO';
+        doc.text(subTxt, cx + 4, cy + CARD_HDR - 2.5);
 
-        // ── ALL PDV rows ──────────────────────────────────────
-        if (enc.done) {
-          let pdvY = curY + 11.5;
+        // Divider
+        hRule(cy + CARD_HDR - 0.5, cx + 2, cx + colW2 - 2, C.border, 0.2);
+
+        // PDV rows
+        if (isDone) {
+          const maxPdvCnt = enc.pdvList[0]?.[1] || 1;
+          let py2 = cy + CARD_HDR + 1;
           enc.pdvList.forEach(([pdv, cnt]) => {
-            // Green dot
-            doc.setFillColor(...COL.green);
-            doc.circle(ML + 6.5, pdvY - 0.8, 0.9, 'F');
-
-            // PDV name (truncated to fit)
-            doc.setFontSize(6);
-            doc.setTextColor(...COL.gray);
-            doc.setFont('helvetica', 'normal');
-            const pdvLabel = doc.splitTextToSize(pdv, CW - 25)[0];
-            doc.text(pdvLabel, ML + 9.5, pdvY);
-
-            // Count
-            doc.setTextColor(...COL.gray2);
-            doc.text(`${cnt}×`, PW - MR - 3, pdvY, { align: 'right' });
-
-            // Thin separator
-            doc.setDrawColor(30, 33, 40);
-            doc.setLineWidth(0.15);
-            doc.line(ML + 8, pdvY + 1.2, PW - MR - 2, pdvY + 1.2);
-
-            pdvY += 5.2;
+            // Mini progress bar
+            miniBar(cx + 4, py2 + 0.5, colW2 - 22, 2.5, cnt, maxPdvCnt, C.light);
+            setFont(6, C.dark, 'normal');
+            const pdvLabel = doc.splitTextToSize(pdv, colW2 - 24)[0];
+            doc.text(pdvLabel, cx + 4, py2 + 4.5);
+            setFont(6, C.mid, 'bold');
+            doc.text(`${cnt}×`, cx + colW2 - 3, py2 + 4.5, { align: 'right' });
+            // thin divider
+            doc.setDrawColor(...C.border);
+            doc.setLineWidth(0.1);
+            doc.line(cx + 4, py2 + 5.4, cx + colW2 - 3, py2 + 5.4);
+            py2 += PDV_ROW;
           });
         }
+      }
 
-        curY += cardH + 2; // 2mm gap between cards
+      encStatus.forEach(enc => {
+        const cH   = cardHeight(enc);
+        const minNeed = CARD_HDR + 4; // min space to start a card
+
+        // Try to fit in current column
+        function colFits(c) { return colY[c] + cH <= PH - MB; }
+
+        if (!colFits(col2)) {
+          const other = 1 - col2;
+          if (!colFits(other)) {
+            // Both full — new page
+            curY  = supHeader(false);
+            isFirst2 = false;
+            col2  = 0;
+            colY  = [curY, curY];
+          } else {
+            col2 = other;
+          }
+        }
+
+        const cx = col2 === 0 ? colXL : colXR;
+        drawCard(enc, cx, colY[col2]);
+        colY[col2] += cH + 3;
+        col2 = 1 - col2;
+      });
+
+      // Pendientes summary bar at bottom (if any)
+      if (pendingList.length > 0) {
+        const bY3 = Math.max(colY[0], colY[1]) + 2;
+        if (bY3 + 8 < PH - MB) {
+          doc.setFillColor(...C.redLt);
+          doc.setDrawColor(...C.red);
+          doc.setLineWidth(0.4);
+          doc.rect(ML + 3, bY3, CW - 3, 8, 'FD');
+          doc.setFillColor(...C.red);
+          doc.rect(ML + 3, bY3, 2.5, 8, 'F');
+          setFont(6, C.red, 'bold');
+          doc.text('PENDIENTES', ML + 8, bY3 + 3.5);
+          setFont(6.5, C.red, 'normal');
+          doc.text(pendingList.join('  ·  '), ML + 30, bY3 + 3.5);
+          setFont(6, C.light, 'normal');
+          doc.text('SIN REGISTROS EN EL PERIODO FILTRADO', ML + 8, bY3 + 6.5);
+        }
       }
     }
 
-    // ════════════════════════════════════════════════════════
-    // ÚLTIMA PÁGINA: Cierre
-    // ════════════════════════════════════════════════════════
+    /* ════════════════════════════════════════════════════════
+       ÚLTIMA PÁGINA: Cierre MARKA
+    ════════════════════════════════════════════════════════ */
     y = newPage();
-    doc.setFontSize(11);
-    doc.setTextColor(...COL.gray);
-    doc.setFont('helvetica', 'normal');
-    doc.text('HACEMOS QUE TU', ML + 4, y + 40);
-    doc.setFontSize(28);
-    doc.setTextColor(...COL.white);
-    doc.setFont('helvetica', 'bold');
-    doc.text('MARCA SEA +', ML + 4, y + 55);
-    doc.setFillColor(...COL.red);
-    doc.rect(ML + 4, y + 58, 55, 1.2, 'F');
-    doc.setFontSize(10);
-    doc.setTextColor(...COL.gray);
-    doc.setFont('helvetica', 'normal');
-    doc.text('+ VISIBILIDAD', ML + 4, y + 72);
-    doc.text('+ DATOS',       ML + 4, y + 80);
-    doc.text('+ RESULTADOS',  ML + 4, y + 88);
+    setFont(9, C.red, 'bold');
+    doc.text('+ MARKA', ML + 3, y + 8);
 
-    // ── Save ─────────────────────────────────────────────────
-    const fecha = new Date().toLocaleDateString('es-PY').replace(/\//g, '-');
-    doc.save(`Reporte_Paresa_${fecha}.pdf`);
+    const nextDelivery = new Date(today2);
+    nextDelivery.setDate(nextDelivery.getDate() + 7);
+    const nextStr = nextDelivery.toLocaleDateString('es-PY',{day:'2-digit',month:'short',year:'numeric'}).toUpperCase();
+    setFont(7, C.light, 'normal');
+    doc.text(`P R Ó X I M A  E N T R E G A  ·  ${nextStr}`, ML + 3, y + 14);
+
+    setFont(46, C.dark, 'bold');
+    doc.text('HACEMOS QUE', ML + 3, y + 32);
+    doc.text('TU', ML + 3, y + 44);
+
+    setFont(46, C.red, 'bold');
+    doc.text('MARCA SEA +', ML + 3, y + 58);
+
+    // Mini stats
+    const closeKpis = [
+      { label: 'E N C U E S T A S',  val: totalEnc  },
+      { label: 'P U N T O S D E V E N T A', val: totalPdvs },
+      { label: 'S U P E R V I S O R E S',   val: totalSups },
+      { label: 'F O R M U L A R I O S',     val: totalForms},
+    ];
+    let ckX = ML + 3;
+    closeKpis.forEach(k => {
+      setFont(16, C.dark, 'bold');
+      doc.text(String(k.val), ckX, y + 74);
+      setFont(5.5, C.light, 'normal');
+      doc.text(k.label, ckX, y + 79);
+      ckX += (CW - 3) / closeKpis.length;
+    });
+
+    hRule(y + 81, ML + 3, PW - MR, C.rule, 0.4);
+    setFont(7, C.light, 'normal');
+    doc.text('V I S I B I L I D A D  ·  V E N T A S  ·  M A R C A', ML + 3, y + 87);
+
+    /* ── Guardar ─────────────────────────────────────────── */
+    const fecha = today2.toLocaleDateString('es-PY').replace(/\//g, '-');
+    doc.save(`MARKA_Reporte_${fecha}.pdf`);
 
   } catch(err) {
     showAlert('Error al generar el PDF: ' + err.message);
     console.error(err);
   } finally {
-    btn.textContent = '📄 Exportar PDF';
+    btn.textContent = '📄 Exportar Reporte PDF';
     btn.disabled = false;
   }
 }
-/* ════════════════════════════════════════════════════════════
-   EXPORTAR PPT — genera presentación estilo PARESA
-   Estructura:
-     Slide 1: Portada
-     Slide 2: Resumen general (KPIs + gráfico por supervisor)
-     Slide 3: Detalle de cumplimiento por supervisor (N slides)
-              — formularios completados / pendientes
-              — PDVs visitados por formulario
-   Paleta: fondo #141414, rojo #CC1111, verde #2E9E2E,
-           azul #2A5CCC, texto #FFFFFF, gris #888888
-════════════════════════════════════════════════════════════ */
 /* Escapa comillas simples para uso en atributo onclick */
-function escapeSup(name) {
-  return name.replace(/'/g, "\\'");
-}
-
-async function exportPPT() {
-  if (!filtered.length) {
-    showAlert('No hay datos filtrados para exportar.');
-    return;
-  }
-
-  // Detectar el constructor correcto según la versión del bundle cargado
-  const PptxCtor = window.PptxGenJS || window.pptxgen || window.PptxGenJs;
-  if (!PptxCtor) {
-    showAlert('La librería PptxGenJS no se cargó. Verificá tu conexión a internet y recargá la página.');
-    return;
-  }
-
-  const btn = document.getElementById('btnExportPpt');
-  btn.textContent = '⏳ Generando PPT…';
-  btn.disabled = true;
-
-  try {
-    // Pequeña pausa para que el UI se actualice
-    await new Promise(r => setTimeout(r, 50));
-
-    const pres = new PptxCtor();
-    pres.layout  = 'LAYOUT_16x9';
-    pres.author  = 'Field Intelligence';
-    pres.title   = 'Reporte de Productividad';
-
-    // ── Paleta de colores (sin # según pptxgenjs) ──────────
-    const C = {
-      bg:      '141414',
-      surface: '232323',
-      surface2:'333333',
-      red:     'CC1111',
-      green:   '2E9E2E',
-      greenDk: '1A4A1A',
-      blue:    '2A5CCC',
-      yellow:  'FFC000',
-      white:   'FFFFFF',
-      gray:    '888888',
-      gray2:   '444444',
-    };
-
-    // ── Helpers ─────────────────────────────────────────────
-    const W = 10, H = 5.625; // slide dimensions inches
-
-    function addSlide(bgColor = C.bg) {
-      const s = pres.addSlide();
-      s.background = { color: bgColor };
-      // Footer PARESA brand
-      s.addText('PARESA · RELEVAMIENTO DE CAMPO · MAYO 2026', {
-        x: 0, y: H - 0.22, w: W, h: 0.22,
-        fontSize: 7, color: C.gray2, align: 'center',
-        fontFace: 'Calibri', margin: 0,
-      });
-      return s;
-    }
-
-    function kpiBox(slide, x, y, w, h, label, value, color) {
-      // Card background
-      slide.addShape(pres.shapes.RECTANGLE, {
-        x, y, w, h,
-        fill: { color: C.surface },
-        line: { color: C.surface2, width: 1 },
-      });
-      // Top accent bar
-      slide.addShape(pres.shapes.RECTANGLE, {
-        x, y, w, h: 0.04,
-        fill: { color: color },
-        line: { color: color, width: 0 },
-      });
-      // Value
-      slide.addText(String(value), {
-        x, y: y + 0.08, w, h: h * 0.55,
-        fontSize: 40, bold: true, color: color,
-        fontFace: 'Arial Black', align: 'center', valign: 'middle', margin: 0,
-      });
-      // Label
-      slide.addText(label, {
-        x, y: y + h * 0.6, w, h: h * 0.35,
-        fontSize: 9, color: C.gray, fontFace: 'Calibri',
-        align: 'center', charSpacing: 1.5, margin: 0,
-      });
-    }
-
-    // ══════════════════════════════════════════════════════
-    // SLIDE 1: PORTADA
-    // ══════════════════════════════════════════════════════
-    const s1 = addSlide();
-
-    // Red left sidebar
-    s1.addShape(pres.shapes.RECTANGLE, {
-      x: 0, y: 0, w: 0.12, h: H,
-      fill: { color: C.red }, line: { color: C.red, width: 0 },
-    });
-
-    // PARESA brand top
-    s1.addText('· PARESA ·', {
-      x: 0.3, y: 0.3, w: 4, h: 0.3,
-      fontSize: 10, color: C.gray, fontFace: 'Calibri',
-      charSpacing: 4, margin: 0,
-    });
-
-    // Main title
-    s1.addText('RELEVAMIENTO\nDE CAMPO', {
-      x: 0.3, y: 0.8, w: 7, h: 2.4,
-      fontSize: 60, bold: true, color: C.white,
-      fontFace: 'Arial Black', align: 'left', valign: 'top',
-      charSpacing: 8, margin: 0,
-    });
-
-    // Date / period
-    const today = new Date();
-    const monthYear = today.toLocaleDateString('es-PY', { month: 'long', year: 'numeric' }).toUpperCase();
-    s1.addText(monthYear, {
-      x: 0.3, y: 3.5, w: 6, h: 0.4,
-      fontSize: 14, color: C.red, fontFace: 'Calibri',
-      charSpacing: 3, margin: 0,
-    });
-
-    // Summary line
-    const totalEnc  = filtered.length;
-    const totalSups = new Set(filtered.map(r => r.empleado)).size;
-    const totalPdvs = new Set(filtered.map(r => r.pdv)).size;
-    s1.addText(`${totalEnc} encuestas  ·  ${totalSups} supervisores  ·  ${totalPdvs} puntos de venta`, {
-      x: 0.3, y: 4.1, w: 8, h: 0.35,
-      fontSize: 11, color: C.gray, fontFace: 'Calibri', margin: 0,
-    });
-
-    // ══════════════════════════════════════════════════════
-    // SLIDE 2: RESUMEN GENERAL
-    // ══════════════════════════════════════════════════════
-    const s2 = addSlide();
-
-    // Red left sidebar
-    s2.addShape(pres.shapes.RECTANGLE, {
-      x: 0, y: 0, w: 0.12, h: H,
-      fill: { color: C.red }, line: { color: C.red, width: 0 },
-    });
-
-    // Section label
-    s2.addText('RESUMEN DE COBERTURA', {
-      x: 0.25, y: 0.18, w: 9, h: 0.28,
-      fontSize: 10, color: C.gray, fontFace: 'Calibri',
-      charSpacing: 3, margin: 0,
-    });
-
-    // KPI cards row
-    const kpiData = [
-      { label: 'ENCUESTAS',      value: totalEnc,   color: C.white },
-      { label: 'SUPERVISORES',   value: totalSups,  color: C.blue  },
-      { label: 'FORMULARIOS',    value: new Set(filtered.map(r => r.formulario)).size, color: C.green },
-      { label: 'PDVS VISITADOS', value: totalPdvs,  color: C.red   },
-    ];
-    const cardW = 2.1, cardH = 1.1, cardY = 0.55, cardGap = 0.1;
-    const startX = 0.25;
-    kpiData.forEach((k, i) => {
-      kpiBox(s2, startX + i * (cardW + cardGap), cardY, cardW, cardH, k.label, k.value, k.color);
-    });
-
-    // Supervisor bar chart data
-    const supCounts = countBy(filtered, 'empleado');
-    const chartColors = supCounts.map((_, i) =>
-      [C.blue, C.green, C.red, 'FFC000', '2E9E2E', '888888'][i % 6]
-    );
-
-    s2.addChart(pres.charts.BAR, [{
-      name: 'Encuestas',
-      labels: supCounts.map(d => d[0]),
-      values: supCounts.map(d => d[1]),
-    }], {
-      x: 0.25, y: 1.78, w: 9.5, h: 2.9,
-      barDir: 'col',
-      chartColors,
-      chartArea: { fill: { color: C.surface } },
-      plotArea: { fill: { color: C.surface } },
-      catAxisLabelColor: C.gray,
-      valAxisLabelColor: C.gray,
-      catAxisLineShow: false,
-      valAxisLineShow: false,
-      valGridLine: { color: C.gray2, size: 0.5 },
-      catGridLine: { style: 'none' },
-      showValue: true,
-      dataLabelColor: C.white,
-      dataLabelFontSize: 9,
-      showLegend: false,
-      valAxisMinVal: 0,
-    });
-
-    // ══════════════════════════════════════════════════════
-    // SLIDE 3: CUMPLIMIENTO POR SUPERVISOR (tabla resumen)
-    // ══════════════════════════════════════════════════════
-    const s3 = addSlide();
-
-    s3.addShape(pres.shapes.RECTANGLE, {
-      x: 0, y: 0, w: 0.12, h: H,
-      fill: { color: C.red }, line: { color: C.red, width: 0 },
-    });
-    s3.addText('CUMPLIMIENTO POR SUPERVISOR', {
-      x: 0.25, y: 0.15, w: 9, h: 0.28,
-      fontSize: 10, color: C.gray, fontFace: 'Calibri', charSpacing: 3, margin: 0,
-    });
-
-    // Table header
-    const tblHeader = [
-      { text: 'SUPERVISOR', options: { bold: true, color: C.white, fill: { color: C.gray2 }, align: 'left' } },
-      { text: 'ENCUESTAS', options: { bold: true, color: C.white, fill: { color: C.gray2 }, align: 'center' } },
-      { text: 'PDVs', options: { bold: true, color: C.white, fill: { color: C.gray2 }, align: 'center' } },
-      { text: 'COMPLETADAS', options: { bold: true, color: C.white, fill: { color: C.gray2 }, align: 'center' } },
-      { text: 'PENDIENTES', options: { bold: true, color: C.white, fill: { color: C.gray2 }, align: 'center' } },
-      { text: '%', options: { bold: true, color: C.white, fill: { color: C.gray2 }, align: 'center' } },
-    ];
-
-    const supervisors = [...new Set(filtered.map(r => r.empleado))].sort();
-    const tblRows = supervisors.map(sup => {
-      const supData  = filtered.filter(r => r.empleado === sup);
-      const pdvCount = new Set(supData.map(r => r.pdv)).size;
-      const done     = ENCUESTAS_REQUERIDAS.filter(enc =>
-        supData.some(r => normalizeEncName(r.formulario) === normalizeEncName(enc))
-      ).length;
-      const pending  = ENCUESTAS_REQUERIDAS.length - done;
-      const pct      = Math.round((done / ENCUESTAS_REQUERIDAS.length) * 100);
-      const pctColor = pct >= 80 ? C.green : pct >= 40 ? C.yellow : C.red;
-
-      return [
-        { text: sup, options: { color: C.white, align: 'left', fill: { color: C.surface } } },
-        { text: String(supData.length), options: { color: C.gray, align: 'center', fill: { color: C.surface } } },
-        { text: String(pdvCount), options: { color: C.gray, align: 'center', fill: { color: C.surface } } },
-        { text: String(done), options: { color: C.green, bold: true, align: 'center', fill: { color: C.surface } } },
-        { text: String(pending), options: { color: pending > 0 ? C.red : C.gray, bold: pending > 0, align: 'center', fill: { color: C.surface } } },
-        { text: `${pct}%`, options: { color: pctColor, bold: true, align: 'center', fill: { color: C.surface } } },
-      ];
-    });
-
-    s3.addTable([tblHeader, ...tblRows], {
-      x: 0.25, y: 0.55, w: 9.5,
-      fontSize: 10, fontFace: 'Calibri',
-      border: { pt: 0.5, color: C.gray2 },
-      rowH: 0.35,
-      colW: [3.2, 1.2, 1.0, 1.4, 1.3, 1.4],
-    });
-
-    // ══════════════════════════════════════════════════════
-    // SLIDES 4+: DETALLE POR SUPERVISOR
-    // ══════════════════════════════════════════════════════
-    for (const supName of supervisors) {
-      const supData  = filtered.filter(r => r.empleado === supName);
-      const pdvCount = new Set(supData.map(r => r.pdv)).size;
-
-      // Calcular estado de encuestas
-      const encStatus = ENCUESTAS_REQUERIDAS.map(enc => {
-        const matches = supData.filter(r =>
-          normalizeEncName(r.formulario) === normalizeEncName(enc)
-        );
-        const done = matches.length > 0;
-        const pdvCounts = {};
-        matches.forEach(r => {
-          pdvCounts[r.pdv] = (pdvCounts[r.pdv] || 0) + 1;
-        });
-        const pdvList = Object.entries(pdvCounts).sort((a, b) => b[1] - a[1]);
-        return { enc, done, count: matches.length, pdvList };
-      });
-
-      const doneCount    = encStatus.filter(e => e.done).length;
-      const pendingCount = encStatus.filter(e => !e.done).length;
-      const pct          = Math.round((doneCount / ENCUESTAS_REQUERIDAS.length) * 100);
-      const pctColor     = pct >= 80 ? C.green : pct >= 40 ? C.yellow : C.red;
-
-      // ── Helper: adds header to a supervisor slide ──────────
-      function addSupHeader(slide, isFirst) {
-        slide.addShape(pres.shapes.RECTANGLE, {
-          x: 0, y: 0, w: 0.12, h: H,
-          fill: { color: C.red }, line: { color: C.red, width: 0 },
-        });
-        slide.addText('DETALLE — SUPERVISOR', {
-          x: 0.25, y: 0.12, w: 9, h: 0.22,
-          fontSize: 9, color: C.gray, fontFace: 'Calibri', charSpacing: 3, margin: 0,
-        });
-        slide.addText(supName.toUpperCase(), {
-          x: 0.25, y: 0.3, w: 7, h: 0.45,
-          fontSize: 22, bold: true, color: C.white, fontFace: 'Arial Black',
-          charSpacing: 2, margin: 0,
-        });
-        if (isFirst) {
-          const pillY = 0.25;
-          slide.addShape(pres.shapes.RECTANGLE, {
-            x: 7.4, y: pillY, w: 1.1, h: 0.55,
-            fill: { color: C.surface }, line: { color: C.gray2, width: 1 },
-          });
-          slide.addText(`${supData.length}\nENCUESTAS`, {
-            x: 7.4, y: pillY, w: 1.1, h: 0.55,
-            fontSize: 9, color: C.white, align: 'center', valign: 'middle',
-            fontFace: 'Calibri', bold: true, margin: 0,
-          });
-          slide.addShape(pres.shapes.RECTANGLE, {
-            x: 8.6, y: pillY, w: 1.15, h: 0.55,
-            fill: { color: C.surface }, line: { color: C.blue, width: 1 },
-          });
-          slide.addText(`${pdvCount}\nPDVs`, {
-            x: 8.6, y: pillY, w: 1.15, h: 0.55,
-            fontSize: 9, color: C.blue, align: 'center', valign: 'middle',
-            fontFace: 'Calibri', bold: true, margin: 0,
-          });
-          slide.addShape(pres.shapes.RECTANGLE, {
-            x: 7.4, y: pillY + 0.63, w: 2.35, h: 0.3,
-            fill: { color: pctColor + '33' }, line: { color: pctColor, width: 1 },
-          });
-          slide.addText(`${doneCount}/${ENCUESTAS_REQUERIDAS.length} formularios · ${pct}% completado`, {
-            x: 7.4, y: pillY + 0.63, w: 2.35, h: 0.3,
-            fontSize: 8, color: pctColor, align: 'center', valign: 'middle',
-            fontFace: 'Calibri', bold: true, margin: 0,
-          });
-        } else {
-          // "continued" badge for overflow slides
-          slide.addText('(continuación)', {
-            x: 7.4, y: 0.35, w: 2.35, h: 0.25,
-            fontSize: 8, color: C.gray2, align: 'right',
-            fontFace: 'Calibri', margin: 0,
-          });
-        }
-        slide.addShape(pres.shapes.LINE, {
-          x: 0.25, y: 1.0, w: 9.5, h: 0,
-          line: { color: C.gray2, width: 0.75 },
-        });
-      }
-
-      // ── Layout constants ───────────────────────────────────
-      const colW    = 4.6;
-      const colGap  = 0.2;
-      const startY  = 1.12;
-      const maxY    = H - 0.3;   // bottom margin
-      const rowH    = 0.42;      // header row height
-      const pdvRowH = 0.2;       // height per PDV row
-      const pdvPad  = 0.04;      // small top pad inside pdv rows
-
-      // ── Render all encuestas, auto-paginating ──────────────
-      let curSlide  = addSlide();
-      let isFirst   = true;
-      addSupHeader(curSlide, true);
-
-      let col       = 0;              // 0 = left col, 1 = right col
-      let colY      = [startY, startY]; // current Y cursor per column
-
-      encStatus.forEach(enc => {
-        // Calculate full card height: header + sub-info + all PDV rows
-        const pdvRows  = enc.done ? enc.pdvList.length : 0;
-        const cardH    = rowH + pdvRows * pdvRowH;
-
-        // Check if this card overflows the current column
-        // If both columns are full → new slide
-        function tryColumn(c) {
-          return colY[c] + cardH <= maxY;
-        }
-
-        // Try current column first, then other column, then new slide
-        if (!tryColumn(col)) {
-          const other = 1 - col;
-          if (tryColumn(other)) {
-            col = other;
-          } else {
-            // Both full → start a new slide
-            curSlide = addSlide();
-            addSupHeader(curSlide, false);
-            isFirst = false;
-            col = 0;
-            colY = [startY, startY];
-          }
-        }
-
-        const cx = 0.25 + col * (colW + colGap);
-        const cy = colY[col];
-
-        // ── Card background ──
-        curSlide.addShape(pres.shapes.RECTANGLE, {
-          x: cx, y: cy, w: colW, h: cardH,
-          fill: { color: C.surface },
-          line: { color: enc.done ? C.greenDk : '3A0A0A', width: 1 },
-        });
-        // Left accent bar
-        curSlide.addShape(pres.shapes.RECTANGLE, {
-          x: cx, y: cy, w: 0.06, h: cardH,
-          fill: { color: enc.done ? C.green : C.red },
-          line: { color: enc.done ? C.green : C.red, width: 0 },
-        });
-
-        // Status icon
-        curSlide.addText(enc.done ? '✓' : '✗', {
-          x: cx + 0.1, y: cy + 0.05, w: 0.22, h: 0.25,
-          fontSize: 11, bold: true, color: enc.done ? C.green : C.red,
-          fontFace: 'Calibri', margin: 0,
-        });
-        // Encuesta name
-        curSlide.addText(enc.enc, {
-          x: cx + 0.32, y: cy + 0.04, w: colW - 1.2, h: 0.25,
-          fontSize: 9.5, bold: true, color: C.white,
-          fontFace: 'Calibri', margin: 0,
-        });
-        // Badge
-        curSlide.addShape(pres.shapes.RECTANGLE, {
-          x: cx + colW - 0.88, y: cy + 0.06, w: 0.85, h: 0.22,
-          fill: { color: enc.done ? C.greenDk : '3A0A0A' },
-          line: { color: enc.done ? C.green : C.red, width: 1 },
-        });
-        curSlide.addText(enc.done ? 'COMPLETADO' : 'PENDIENTE', {
-          x: cx + colW - 0.88, y: cy + 0.06, w: 0.85, h: 0.22,
-          fontSize: 6.5, bold: true, color: enc.done ? C.green : C.red,
-          fontFace: 'Calibri', align: 'center', valign: 'middle', margin: 0,
-        });
-        // Sub-info line
-        const subText = enc.done
-          ? `${enc.count} registro${enc.count !== 1 ? 's' : ''} · ${enc.pdvList.length} PDV${enc.pdvList.length !== 1 ? 's' : ''}`
-          : 'Sin registros en el período filtrado';
-        curSlide.addText(subText, {
-          x: cx + 0.32, y: cy + 0.27, w: colW - 0.45, h: 0.15,
-          fontSize: 7.5, color: C.gray, fontFace: 'Calibri', margin: 0,
-        });
-
-        // ── ALL PDV rows (no limit) ──────────────────────────
-        if (enc.done) {
-          let pdvY = cy + rowH;
-          enc.pdvList.forEach(([pdv, cnt]) => {
-            // Green dot
-            curSlide.addShape(pres.shapes.OVAL, {
-              x: cx + 0.16, y: pdvY + 0.055, w: 0.065, h: 0.065,
-              fill: { color: C.green }, line: { color: C.green, width: 0 },
-            });
-            // PDV name
-            curSlide.addText(pdv, {
-              x: cx + 0.28, y: pdvY + pdvPad, w: colW - 1.1, h: pdvRowH - pdvPad,
-              fontSize: 7, color: C.gray, fontFace: 'Calibri', margin: 0,
-            });
-            // Count
-            curSlide.addText(`${cnt}×`, {
-              x: cx + colW - 0.48, y: pdvY + pdvPad, w: 0.4, h: pdvRowH - pdvPad,
-              fontSize: 7, color: C.gray, fontFace: 'Calibri',
-              align: 'right', margin: 0,
-            });
-            pdvY += pdvRowH;
-          });
-        }
-
-        // Advance Y cursor for this column
-        colY[col] += cardH + 0.06; // 0.06 gap between cards
-
-        // Alternate columns for next card
-        col = 1 - col;
-      });
-    }
-
-    // ══════════════════════════════════════════════════════
-    // SLIDE FINAL: Cierre
-    // ══════════════════════════════════════════════════════
-    const sFin = addSlide();
-    sFin.addShape(pres.shapes.RECTANGLE, {
-      x: 0, y: 0, w: 0.12, h: H,
-      fill: { color: C.red }, line: { color: C.red, width: 0 },
-    });
-    sFin.addText('HACEMOS QUE TU', {
-      x: 0.4, y: 1.2, w: 9, h: 0.5,
-      fontSize: 18, color: C.gray, fontFace: 'Calibri', charSpacing: 6, margin: 0,
-    });
-    sFin.addText('MARCA SEA +', {
-      x: 0.4, y: 1.7, w: 9, h: 1.0,
-      fontSize: 48, bold: true, color: C.white, fontFace: 'Arial Black',
-      charSpacing: 8, margin: 0,
-    });
-    sFin.addText('+ VISIBILIDAD\n+ DATOS\n+ RESULTADOS', {
-      x: 0.4, y: 3.0, w: 5, h: 1.1,
-      fontSize: 13, color: C.gray, fontFace: 'Calibri', margin: 0,
-    });
-
-    // ── Exportar ─────────────────────────────────────────
-    const fecha = new Date().toLocaleDateString('es-PY').replace(/\//g, '-');
-    await pres.writeFile({ fileName: `Productividad_Paresa_${fecha}.pptx` });
-
-  } catch(err) {
-    showAlert('Error al generar el PPT: ' + err.message);
-    console.error(err);
-  } finally {
-    btn.textContent = '📊 Exportar PPT';
-    btn.disabled = false;
-  }
-}
+function escapeSup(name) { return name.replace(/'/g, "\\'"); }
 </script>
 </body>
 </html>
