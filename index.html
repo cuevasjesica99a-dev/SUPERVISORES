@@ -615,6 +615,7 @@
     padding: 64px 72px 90px;
     height: 1697px; overflow: hidden;
     display: flex; flex-direction: column;
+    background: var(--rpt-paper); /* explicit — prevents any dark parent bleeding through */
   }
   .rpt-page-foot {
     position: absolute; left: 72px; right: 72px; bottom: 24px;
@@ -715,9 +716,9 @@
   .rpt-tag-danger{ background:color-mix(in oklab,var(--rpt-danger) 14%,white);color:var(--rpt-danger); }
 
   /* ── Detail page ── */
-  .rpt-sd-head { display:flex;justify-content:space-between;align-items:flex-end;gap:20px;padding-bottom:14px;border-bottom:1px solid var(--rpt-rule);margin-bottom:12px;background:transparent; }
+  .rpt-sd-head { display:flex;justify-content:space-between;align-items:flex-end;gap:20px;padding:18px 20px 18px;border-bottom:1px solid var(--rpt-rule);margin-bottom:12px;background:var(--rpt-paper); }
   .rpt-sd-eyebrow { font:10px/1 var(--rpt-mono);letter-spacing:.18em;text-transform:uppercase;color:var(--rpt-dim);margin-bottom:8px; }
-  .rpt-sd-name { font-family:var(--rpt-serif);font-weight:400;font-size:44px;line-height:1;letter-spacing:-.015em; }
+  .rpt-sd-name { font-family:var(--rpt-serif);font-weight:400;font-size:44px;line-height:1;letter-spacing:-.015em;color:var(--rpt-ink); }
   .rpt-sd-zona { margin-top:5px;font:11px/1 var(--rpt-mono);color:var(--rpt-dim);text-transform:uppercase;letter-spacing:.06em; }
   .rpt-sd-pct { text-align:right;padding:13px 16px;border:1px solid;min-width:126px; }
   .rpt-sd-pct-n { font-family:var(--rpt-serif);font-size:44px;line-height:.95;font-variant-numeric:tabular-nums; }
@@ -738,8 +739,8 @@
   .rpt-sd-note-text { font:12px/1.5 var(--rpt-sans);color:var(--rpt-ink-2); }
 
   /* ── Form block ── */
-  .rpt-fb { background:#fff;border:1px solid var(--rpt-rule);padding:13px;display:flex;flex-direction:column;gap:8px;overflow:hidden; }
-  .rpt-fb-head { display:flex;justify-content:space-between;align-items:center;gap:9px; }
+  .rpt-fb { background:var(--rpt-paper);border:1px solid var(--rpt-rule);padding:13px;display:flex;flex-direction:column;gap:8px;overflow:hidden; }
+  .rpt-fb-head { display:flex;justify-content:space-between;align-items:center;gap:9px;background:var(--rpt-paper); }
   .rpt-fb-name { display:flex;align-items:center;gap:8px; }
   .rpt-fb-dot { width:9px;height:9px;border-radius:50%;flex-shrink:0; }
   .rpt-fb-title { font-size:13px;font-weight:600;letter-spacing:-.005em; }
